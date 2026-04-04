@@ -1,0 +1,13 @@
+{
+  "name": "gexradar-proxy",
+  "version": "1.0.0",
+  "description": "CBOE delayed options data proxy for GEXRADAR dashboard",
+  "main": "proxy.js",
+  "scripts": {
+    "start": "node proxy.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {}
+}

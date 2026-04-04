@@ -1,0 +1,200 @@
+/**
+ * GEXRADAR — CBOE Proxy for Render.com
+ * ──────────────────────────────────────────────────────────────
+ * Fetches CBOE public delayed options data and serves it to the
+ * gexradar.html dashboard with CORS headers.
+ *
+ * Deploy on Render.com:
+ *   1. New Web Service → connect your GitHub repo
+ *   2. Build command:  npm install
+ *   3. Start command:  node proxy.js
+ *   4. Copy the Render URL (e.g. https://gexradar-proxy.onrender.com)
+ *   5. Paste it into gexradar.html as PROXY_URL
+ *
+ * Endpoints:
+ *   GET /chain/SPX   → raw CBOE JSON for SPX (15-min delayed)
+ *   GET /chain/NDX
+ *   GET /chain/SPY
+ *   GET /chain/QQQ
+ *   GET /health      → {"ok":true}
+ */
+
+'use strict';
+const http  = require('http');
+const https = require('https');
+const PORT  = process.env.PORT || 3000;   // Render sets PORT env var
+
+// CBOE ticker map
+const CBOE = {
+  SPX: '_SPX',
+  NDX: '_NDX',
+  SPY: 'SPY',
+  QQQ: 'QQQ',
+};
+const CBOE_URL = t =>
+  `https://cdn.cboe.com/api/global/delayed_quotes/options/${t}.json`;
+
+// ── In-memory cache (15-minute TTL matching CBOE delay) ──────────
+const CACHE   = new Map();
+const CACHE_TTL = 15 * 60 * 1000;
+
+function fromCache(key) {
+  const e = CACHE.get(key);
+  return (e && Date.now() - e.ts < CACHE_TTL) ? e.v : null;
+}
+function toCache(key, v) { CACHE.set(key, { v, ts: Date.now() }); }
+
+// ── HTTPS fetch (no npm needed) ───────────────────────────────────
+function fetchJSON(url) {
+  return new Promise((resolve, reject) => {
+    const u   = new URL(url);
+    const req = https.request({
+      hostname: u.hostname,
+      path:     u.pathname + u.search,
+      method:   'GET',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
+          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+        'Accept':          'application/json, */*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer':         'https://www.cboe.com/',
+        'Origin':          'https://www.cboe.com',
+      },
+      timeout: 20000,
+    }, res => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        const body = Buffer.concat(chunks).toString('utf8');
+        if (res.statusCode !== 200) {
+          return reject(new Error(`CBOE HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
+        }
+        try { resolve(JSON.parse(body)); }
+        catch (e) {
+          reject(new Error(`JSON parse failed: ${e.message}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('CBOE request timeout')); });
+    req.end();
+  });
+}
+
+// ── CORS + JSON response helper ───────────────────────────────────
+function send(res, code, obj) {
+  const body = JSON.stringify(obj);
+  res.writeHead(code, {
+    'Content-Type':                'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods':'GET, OPTIONS',
+    'Access-Control-Allow-Headers':'Content-Type',
+    'Cache-Control':               'no-store',
+  });
+  res.end(body);
+}
+
+// ── REQUEST HANDLER ───────────────────────────────────────────────
+async function handle(req, res) {
+  const path   = req.url.split('?')[0].toLowerCase();
+  const method = req.method.toUpperCase();
+
+  console.log(`[${new Date().toISOString()}] ${method} ${req.url}`);
+
+  // Preflight
+  if (method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin':  '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    });
+    return res.end();
+  }
+
+  // Health check
+  if (path === '/health' || path === '/') {
+    return send(res, 200, {
+      ok:     true,
+      port:   PORT,
+      cached: [...CACHE.keys()],
+      ts:     new Date().toISOString(),
+    });
+  }
+
+  // /chain/:SYM
+  const m = path.match(/^\/chain\/([a-z]+)$/);
+  if (m) {
+    const sym  = m[1].toUpperCase();
+    const tick = CBOE[sym];
+
+    if (!tick) {
+      return send(res, 400, {
+        error: `Unknown symbol: ${sym}. Valid: ${Object.keys(CBOE).join(', ')}`,
+      });
+    }
+
+    // Serve from cache if fresh
+    const cached = fromCache(sym);
+    if (cached) {
+      console.log(`  [CACHE] ${sym}`);
+      return send(res, 200, cached);
+    }
+
+    // Fetch from CBOE
+    try {
+      console.log(`  [FETCH] ${sym} → ${CBOE_URL(tick)}`);
+      const data = await fetchJSON(CBOE_URL(tick));
+
+      // Validate response has options
+      const opts = data?.data?.options;
+      if (!Array.isArray(opts) || opts.length === 0) {
+        throw new Error(`CBOE returned no options for ${sym}`);
+      }
+
+      const spot = parseFloat(data?.data?.current_price || 0);
+      console.log(`  [OK] ${sym} spot=${spot} options=${opts.length}`);
+
+      toCache(sym, data);
+      return send(res, 200, data);
+
+    } catch (e) {
+      console.error(`  [ERR] ${sym}:`, e.message);
+      return send(res, 502, { error: e.message });
+    }
+  }
+
+  return send(res, 404, {
+    error: 'Not found',
+    routes: ['/health', '/chain/SPX', '/chain/NDX', '/chain/SPY', '/chain/QQQ'],
+  });
+}
+
+// ── START ─────────────────────────────────────────────────────────
+const server = http.createServer((req, res) => {
+  handle(req, res).catch(e => {
+    console.error('Unhandled error:', e);
+    try { send(res, 500, { error: e.message }); } catch (_) {}
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`
+  ╔═══════════════════════════════════════════╗
+  ║   GEXRADAR Proxy — Render.com             ║
+  ╠═══════════════════════════════════════════╣
+  ║   Port: ${String(PORT).padEnd(33)}║
+  ║   GET /health                             ║
+  ║   GET /chain/SPX  (CBOE 15-min delayed)   ║
+  ║   GET /chain/NDX                          ║
+  ║   GET /chain/SPY                          ║
+  ║   GET /chain/QQQ                          ║
+  ╚═══════════════════════════════════════════╝
+  Cache TTL: 15 min (matches CBOE delay)
+`);
+});
+
+server.on('error', e => {
+  console.error('Server error:', e.message);
+  process.exit(1);
+});
