@@ -22,6 +22,7 @@
 'use strict';
 const http  = require('http');
 const https = require('https');
+const zlib  = require('zlib');
 const PORT  = process.env.PORT || 3000;   // Render sets PORT env var
 
 // CBOE ticker map
@@ -44,7 +45,7 @@ function fromCache(key) {
 }
 function toCache(key, v) { CACHE.set(key, { v, ts: Date.now() }); }
 
-// ── HTTPS fetch (no npm needed) ───────────────────────────────────
+// ── HTTPS fetch — handles gzip/deflate responses ────────────────
 function fetchJSON(url) {
   return new Promise((resolve, reject) => {
     const u   = new URL(url);
@@ -53,31 +54,32 @@ function fetchJSON(url) {
       path:     u.pathname + u.search,
       method:   'GET',
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
-          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+        'User-Agent':      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120',
         'Accept':          'application/json, */*',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Encoding': 'gzip, deflate',
         'Referer':         'https://www.cboe.com/',
         'Origin':          'https://www.cboe.com',
       },
       timeout: 20000,
     }, res => {
+      const enc = (res.headers['content-encoding'] || '').toLowerCase();
+      let stream = res;
+      if      (enc === 'gzip')    stream = res.pipe(zlib.createGunzip());
+      else if (enc === 'deflate') stream = res.pipe(zlib.createInflate());
+
       const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => {
+      stream.on('data', c => chunks.push(c));
+      stream.on('end', () => {
+        if (res.statusCode !== 200)
+          return reject(new Error('CBOE HTTP ' + res.statusCode));
         const body = Buffer.concat(chunks).toString('utf8');
-        if (res.statusCode !== 200) {
-          return reject(new Error(`CBOE HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
-        }
-        try { resolve(JSON.parse(body)); }
-        catch (e) {
-          reject(new Error(`JSON parse failed: ${e.message}`));
-        }
+        try   { resolve(JSON.parse(body)); }
+        catch (e) { reject(new Error('JSON parse: ' + e.message + ' — starts: ' + body.slice(0,60))); }
       });
+      stream.on('error', reject);
     });
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('CBOE request timeout')); });
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
     req.end();
   });
 }
