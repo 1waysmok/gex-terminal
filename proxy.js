@@ -23,7 +23,16 @@
 const http  = require('http');
 const https = require('https');
 const zlib  = require('zlib');
+const fs    = require('fs');
+const path  = require('path');
 const PORT  = process.env.PORT || 3000;   // Render sets PORT env var
+
+// ── Serve the dashboard HTML ──────────────────────────────────────
+const HTML_PATH = path.join(__dirname, 'index.html');
+function getDashboard() {
+  try { return fs.readFileSync(HTML_PATH, 'utf8'); }
+  catch (e) { console.error('getDashboard error:', e.message); return null; }
+}
 
 // CBOE ticker map
 const CBOE = {
@@ -114,8 +123,23 @@ async function handle(req, res) {
     return res.end();
   }
 
+  // Dashboard HTML
+  if (path === '/' || path === '/index.html') {
+    const html = getDashboard();
+    if (!html) {
+      console.error('  [ERR] index.html not found at:', HTML_PATH);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end('<h1>index.html not found</h1><p>Make sure index.html is in the same directory as proxy.js</p><p>Looking at: ' + HTML_PATH + '</p>');
+    }
+    res.writeHead(200, {
+      'Content-Type':  'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    });
+    return res.end(html);
+  }
+
   // Health check
-  if (path === '/health' || path === '/') {
+  if (path === '/health') {
     return send(res, 200, {
       ok:     true,
       port:   PORT,
