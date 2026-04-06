@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GEXRADAR</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+<style>
+:root{
+  --bg:#08090c;--bg1:#0d0f14;--bg2:#12151d;--bg3:#181c28;
+  --ln:rgba(255,255,255,0.045);--ln2:rgba(255,255,255,0.08);--ln3:rgba(255,255,255,0.13);
+  --t1:#dde4ef;--t2:#7888a8;--t3:#3a4460;--t4:#232b42;
+  --pos:#c8d8c0;--neg:#d8c0c0;--acc:#d8d0b8;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--sans);overflow:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:2px}
+.shell{position:fixed;inset:0;display:flex;flex-direction:column}
+.nav{height:42px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg1);border-bottom:1px solid var(--ln2);z-index:30}
+.nav-logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase}
+.nav-pip{width:6px;height:6px;border-radius:50%;background:var(--pos);animation:blink 2.8s ease-in-out infinite;flex-shrink:0}
+.nav-word{color:var(--t1)}.nav-sub{color:var(--t3)}
+.nav-r{display:flex;align-items:center;gap:14px}
+#live-clock{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--t3)}
+.cd-pill{font-family:var(--mono);font-size:8px;letter-spacing:.8px;color:var(--t3);border:1px solid var(--ln2);border-radius:20px;padding:3px 9px;display:flex;align-items:center;gap:5px}
+#cdown{color:rgba(255,255,255,0.8);font-weight:600}
+.body{flex:1;min-height:0;display:grid;grid-template-columns:216px 1fr;overflow:hidden}
+.sidebar{background:var(--bg1);border-right:1px solid var(--ln);height:100%;overflow-y:auto;overflow-x:hidden}
+.sb-sec{font-family:var(--mono);font-size:7px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:var(--t3);padding:12px 14px 5px;border-bottom:1px solid var(--ln);position:sticky;top:0;background:var(--bg1);z-index:2}
+.sb-grp{margin:5px 9px 7px;border:1px solid var(--ln);overflow:hidden}
+.m-tile{display:flex;justify-content:space-between;align-items:baseline;padding:6px 10px;border-bottom:1px solid var(--ln)}
+.m-tile:last-child{border-bottom:none}
+.m-lbl{font-family:var(--sans);font-size:9px;color:var(--t3);letter-spacing:.2px}
+.m-val{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:-.3px;color:var(--t1)}
+.asset-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:8px 9px 10px}
+.asset-btn{background:transparent;border:1px solid var(--ln2);color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;border-radius:2px;padding:6px 0;cursor:pointer;transition:all .1s;text-align:center;user-select:none}
+.asset-btn:hover{border-color:var(--ln3);color:var(--t2)}.asset-btn.on{background:rgba(255,255,255,0.06);border-color:var(--ln3);color:var(--t1)}
+.asset-pair{padding:6px 9px 2px;font-family:var(--mono);font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:var(--t4)}
+.exp-wrap{padding:6px 12px 10px}
+.exp-hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.exp-lbl{font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:1px}
+.exp-val-txt{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--t1)}
+.exp-pips{display:flex;gap:4px;align-items:flex-end;margin-bottom:7px}
+.exp-pip{width:12px;border-radius:1px;background:var(--ln2);cursor:pointer;transition:all .1s}
+.exp-pip.active{background:rgba(255,255,255,0.7)}
+.exp-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
+.exp-btn{background:transparent;border:1px solid var(--ln);color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:600;border-radius:2px;padding:5px 0;cursor:pointer;transition:all .1s;text-align:center;user-select:none}
+.exp-btn:hover{border-color:var(--ln3);color:var(--t2)}.exp-btn.on{background:rgba(255,255,255,0.06);border-color:var(--ln3);color:var(--t1)}
+.main{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg);position:relative}
+.mode-bar{display:flex;align-items:center;gap:5px;padding:8px 16px;border-bottom:1px solid var(--ln);flex-shrink:0;background:var(--bg1)}
+.mode-btn{background:transparent;border:1px solid var(--ln2);color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;border-radius:2px;padding:5px 12px;cursor:pointer;transition:all .1s;user-select:none;white-space:nowrap}
+.mode-btn:hover{border-color:var(--ln3);color:var(--t2)}.mode-btn.on{background:rgba(255,255,255,0.06);border-color:var(--t1);color:var(--t1)}
+.mode-bar-r{margin-left:auto;display:flex;align-items:center;gap:8px}
+.mode-tag{font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:.8px}
+/* Regime banner */
+#regime-banner{display:flex;align-items:stretch;border-bottom:1px solid var(--ln);flex-shrink:0;background:var(--bg1);overflow-x:auto}
+#regime-main{display:flex;align-items:center;gap:10px;padding:8px 18px;border-right:1px solid var(--ln);min-width:220px}
+#regime-pip{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.3);flex-shrink:0}
+#regime-label{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1.5px;color:rgba(255,255,255,0.5)}
+#regime-sub{font-family:var(--sans);font-size:8px;color:var(--t3);margin-top:1px}
+.rtile{flex:0 0 auto;padding:7px 14px;border-right:1px solid var(--ln);min-width:80px}
+.rtile:last-child{border-right:none}
+.rtile-lbl{font-family:var(--mono);font-size:7px;font-weight:600;color:var(--t3);letter-spacing:1.6px;text-transform:uppercase;margin-bottom:2px}
+.rtile-val{font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:-.3px;color:var(--t1)}
+.rtile-sub{font-family:var(--sans);font-size:7px;color:var(--t4);margin-top:1px}
+.content{flex:1;display:flex;overflow:hidden;min-height:0}
+.chart-area{flex:1;overflow:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:8px;min-width:0;position:relative}
+.info-col{width:240px;border-left:1px solid var(--ln);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;flex-shrink:0}
+.kl-panel{background:var(--bg1);border:1px solid var(--ln);overflow:hidden;padding-bottom:1px}
+.kl-header{padding:9px 13px;border-bottom:1px solid var(--ln);font-family:var(--mono);font-size:7px;font-weight:600;color:var(--t3);letter-spacing:2.5px;text-transform:uppercase;background:var(--bg);display:flex;align-items:center;gap:7px}
+.kl-header::before{content:'';width:12px;height:1px;background:var(--t1);flex-shrink:0}
+.kl-row{display:flex;justify-content:space-between;align-items:center;padding:8px 13px;border-bottom:1px solid var(--ln);transition:.1s;cursor:default}
+.kl-row:hover{background:var(--bg2)}.kl-row:last-child{border-bottom:none}
+.kl-left{display:flex;align-items:center;gap:8px}
+.kl-dot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
+.kl-name{font-family:var(--sans);font-size:9px;color:var(--t2);letter-spacing:.2px}
+.kl-val{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:-.2px}
+.sec-head{font-family:var(--mono);font-size:7px;font-weight:600;color:var(--t3);letter-spacing:2.5px;text-transform:uppercase;padding:12px 0 8px;border-bottom:1px solid var(--ln);margin-bottom:10px}
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(8,9,12,.94);z-index:50}
+.overlay.hidden{display:none}
+.spinner{width:24px;height:24px;border:1px solid var(--ln2);border-top-color:var(--t2);border-radius:50%;animation:spin .7s linear infinite}
+.ov-txt{font-family:var(--mono);font-size:8px;color:var(--t2);letter-spacing:1.5px;text-transform:uppercase}
+.ov-sub{font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.3px;text-align:center;max-width:340px;line-height:1.9;white-space:pre-line}
+.gk-btn{background:transparent;border:1px solid var(--ln2);color:var(--t3);font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;padding:4px 10px;cursor:pointer;transition:all .1s;user-select:none;white-space:nowrap}
+.gk-btn:hover{border-color:var(--ln3);color:var(--t2)}.gk-btn.on{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.22);color:var(--t1)}
+.sort-sel{background:var(--bg1);border:1px solid var(--ln2);color:var(--t2);font-family:var(--mono);font-size:9px;padding:5px 8px;cursor:pointer;outline:none;margin-bottom:9px}
+.data-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:9.5px}
+.data-table th{padding:5px 9px;border-bottom:1px solid var(--ln);color:var(--t3);font-size:7px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;text-align:left;white-space:nowrap;position:sticky;top:0;background:var(--bg1)}
+.data-table td{padding:6px 9px;border-bottom:1px solid var(--ln);color:var(--t1);white-space:nowrap}
+.data-table tr:hover td{background:var(--bg2)}
+/* Topo fullscreen */
+#topo-wrap:fullscreen,#topo-wrap:-webkit-full-screen{background:#08090c;width:100vw;height:100vh}
+#topo-wrap:fullscreen #topo-chart,#topo-wrap:-webkit-full-screen #topo-chart{width:100%;height:100%}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav class="nav">
+  <div class="nav-logo">
+    <span class="nav-pip"></span>
+    <span><span class="nav-word">GEX</span><span class="nav-sub">RADAR</span></span>
+  </div>
+  <div class="nav-r">
+    <span id="live-clock">--:--:--</span>
+    <div class="cd-pill">
+      <span style="width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.4);display:inline-block;animation:blink 1.2s ease-in-out infinite"></span>
+      REFRESH <span id="cdown">60</span>s
+    </div>
+  </div>
+</nav>
+
+<div class="body">
+<aside class="sidebar">
+  <div class="sb-sec">Asset</div>
+  <div class="asset-pair">S&amp;P 500</div>
+  <div class="asset-grid">
+    <button class="asset-btn on" onclick="setAsset('SPX',this)">SPX</button>
+    <button class="asset-btn" onclick="setAsset('SPY',this)">SPY</button>
+  </div>
+  <div class="asset-pair">Nasdaq 100</div>
+  <div class="asset-grid">
+    <button class="asset-btn" onclick="setAsset('NDX',this)">NDX</button>
+    <button class="asset-btn" onclick="setAsset('QQQ',this)">QQQ</button>
+  </div>
+
+  <div class="sb-sec">Expirations</div>
+  <div class="exp-wrap">
+    <div class="exp-hdr"><span class="exp-lbl">EXPIRATIONS</span><span class="exp-val-txt" id="exp-val">1</span></div>
+    <div class="exp-pips" id="exp-pips">
+      <div class="exp-pip active" style="height:10px" onclick="setExp(1)"></div>
+      <div class="exp-pip" style="height:14px" onclick="setExp(2)"></div>
+      <div class="exp-pip" style="height:20px" onclick="setExp(3)"></div>
+      <div class="exp-pip" style="height:28px" onclick="setExp(4)"></div>
+    </div>
+    <div class="exp-btns">
+      <button class="exp-btn on" id="expb1" onclick="setExp(1)">1</button>
+      <button class="exp-btn" id="expb2" onclick="setExp(2)">2</button>
+      <button class="exp-btn" id="expb3" onclick="setExp(3)">3</button>
+      <button class="exp-btn" id="expb4" onclick="setExp(4)">4</button>
+    </div>
+  </div>
+
+  <div class="sb-sec">Market Levels</div>
+  <div class="sb-grp">
+    <div class="m-tile"><span class="m-lbl">Spot</span><span class="m-val" id="sb-spot" style="color:rgba(200,216,192,0.9)">—</span></div>
+    <div class="m-tile"><span class="m-lbl" id="sb-gflip-lbl">Gamma Flip</span><span class="m-val" id="sb-gflip">—</span></div>
+    <div class="m-tile"><span class="m-lbl" id="sb-cwall-lbl">Call Wall</span><span class="m-val" id="sb-cwall" style="color:rgba(120,200,140,0.9)">—</span></div>
+    <div class="m-tile"><span class="m-lbl" id="sb-pwall-lbl">Put Wall</span><span class="m-val" id="sb-pwall" style="color:rgba(200,100,100,0.9)">—</span></div>
+    <div class="m-tile"><span class="m-lbl">Max Pain</span><span class="m-val" id="sb-mpain">—</span></div>
+  </div>
+
+  <div class="sb-sec">GEX Exposure</div>
+  <div class="sb-grp">
+    <div class="m-tile"><span class="m-lbl">Net OI-GEX</span><span class="m-val" id="sb-gex">—</span></div>
+    <div class="m-tile"><span class="m-lbl">Net Vol-GEX</span><span class="m-val" id="sb-vgex">—</span></div>
+    <div class="m-tile"><span class="m-lbl">GEX Ratio</span><span class="m-val" id="sb-ratio">—</span></div>
+  </div>
+
+  <div class="sb-sec">Intraday</div>
+  <div class="sb-grp">
+    <div class="m-tile"><span class="m-lbl">Vol Trigger</span><span class="m-val" id="sb-vtrig">—</span></div>
+    <div class="m-tile"><span class="m-lbl">Mom Wall</span><span class="m-val" id="sb-mwall">—</span></div>
+  </div>
+
+  <div class="sb-sec">Volatility</div>
+  <div class="sb-grp">
+    <div class="m-tile"><span class="m-lbl">ATM IV−RV</span><span class="m-val" id="sb-ivrvs">—</span></div>
+  </div>
+
+  <div class="sb-sec">Flow</div>
+  <div class="sb-grp" style="margin-bottom:24px">
+    <div class="m-tile"><span class="m-lbl">Flow Ratio</span><span class="m-val" id="sb-flow">—</span></div>
+    <div class="m-tile"><span class="m-lbl">Net Flow</span><span class="m-val" id="sb-nflow">—</span></div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="overlay" id="loadOverlay">
+    <div class="spinner"></div>
+    <div class="ov-txt" id="ov-txt">LOADING</div>
+    <div class="ov-sub" id="ov-sub">Fetching from proxy…</div>
+  </div>
+
+  <div class="mode-bar">
+    <button class="mode-btn on" id="mb-GEX" onclick="setMode('GEX')">GEX</button>
+    <button class="mode-btn" id="mb-HEAT" onclick="setMode('HEAT')">HEATMAP</button>
+    <button class="mode-btn" id="mb-TABLE" onclick="setMode('TABLE')">KEY LEVELS</button>
+    <div class="mode-bar-r">
+      <span class="mode-tag" id="asset-label">SPX</span>
+      <span class="mode-tag" id="equiv-label" style="color:var(--t4)">ES EQUIV</span>
+    </div>
+  </div>
+
+  <!-- Regime banner -->
+  <div id="regime-banner">
+    <div id="regime-main">
+      <div id="regime-pip"></div>
+      <div>
+        <div id="regime-label">—</div>
+        <div id="regime-sub">Market regime</div>
+      </div>
+    </div>
+    <div style="display:flex;flex:1;overflow-x:auto;overflow-y:hidden">
+      <div class="rtile" id="et-active-tile" style="border-left:2px solid rgba(255,255,255,0.15)"><div class="rtile-lbl" id="et-active-lbl">ACTIVE</div><div class="rtile-val" id="et-active-val">—</div><div class="rtile-sub" id="et-active-sub">—</div></div>
+      <div class="rtile"><div class="rtile-lbl">ATM IV</div><div class="rtile-val" id="et-iv">—</div><div class="rtile-sub">Impl vol</div></div>
+      <div class="rtile"><div class="rtile-lbl" id="et-dex-lbl">DEX</div><div class="rtile-val" id="et-dex">—</div><div class="rtile-sub">Delta exp</div></div>
+      <div class="rtile" id="vex-bias-tile"><div class="rtile-lbl">VEX BIAS</div><div class="rtile-val" id="et-vex">—</div><div class="rtile-sub" id="et-vex-sub">Vega exposure</div></div>
+      <div class="rtile"><div class="rtile-lbl">CEX</div><div class="rtile-val" id="et-cex">—</div><div class="rtile-sub">Charm exp</div></div>
+      <div class="rtile"><div class="rtile-lbl">GEX RATIO</div><div class="rtile-val" id="et-gexr">—</div><div class="rtile-sub">Call/Put</div></div>
+      <div class="rtile"><div class="rtile-lbl">FLOW</div><div class="rtile-val" id="et-flow">—</div><div class="rtile-sub">Bull/Bear</div></div>
+      <div class="rtile"><div class="rtile-lbl">THETA EXP</div><div class="rtile-val" id="et-tex">—</div><div class="rtile-sub">Daily decay</div></div>
+      <div class="rtile"><div class="rtile-lbl">VOMMA EXP</div><div class="rtile-val" id="et-vmx">—</div><div class="rtile-sub">Vol convexity</div></div>
+      <div class="rtile"><div class="rtile-lbl">ZOMMA EXP</div><div class="rtile-val" id="et-zmx">—</div><div class="rtile-sub">GEX sensitivity</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- GEX VIEW -->
+    <div id="view-GEX" style="display:flex;flex:1;min-width:0;overflow:hidden">
+      <div class="chart-area">
+        <div id="greek-bar" style="display:flex;gap:4px;padding:0 0 8px;flex-shrink:0;flex-wrap:wrap">
+          <button class="gk-btn on" id="gkb-NET"   onclick="setGEXMode('NET')">NET GEX</button>
+          <button class="gk-btn"    id="gkb-GEX"   onclick="setGEXMode('GEX')">CALL/PUT</button>
+          <button class="gk-btn"    id="gkb-VEX"   onclick="setGEXMode('VEX')">VEX</button>
+          <button class="gk-btn"    id="gkb-DEX"   onclick="setGEXMode('DEX')">DEX</button>
+          <button class="gk-btn"    id="gkb-OI"    onclick="setGEXMode('OI')">OPEN INT</button>
+          <button class="gk-btn"    id="gkb-CHARM" onclick="setGEXMode('CHARM')">CHARM</button>
+          <button class="gk-btn"    id="gkb-VANNA" onclick="setGEXMode('VANNA')">VANNA</button>
+          <button class="gk-btn"    id="gkb-THETA" onclick="setGEXMode('THETA')">THETA</button>
+          <button class="gk-btn"    id="gkb-VOMMA" onclick="setGEXMode('VOMMA')">VOMMA</button>
+          <button class="gk-btn"    id="gkb-ZOMMA" onclick="setGEXMode('ZOMMA')">ZOMMA</button>
+          <button class="gk-btn"    id="gkb-VETA"  onclick="setGEXMode('VETA')">VETA</button>
+          <div style="margin-left:auto"></div>
+        </div>
+        <div id="gex-chart-scroll" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden"><div id="gex-chart" style="width:100%"></div></div>
+      </div>
+      <div class="info-col">
+        <!-- Zoom -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-shrink:0">
+          <span style="font-family:var(--mono);font-size:7px;color:var(--t4);flex-shrink:0">±<span id="zoom-lbl">20</span>%</span>
+          <input type="range" id="zoom-slider" min="2" max="20" value="20" step="1"
+            oninput="setZoomSlider(this.value)"
+            style="flex:1;height:1px;accent-color:rgba(255,255,255,0.25);cursor:pointer;opacity:.5;margin:0">
+        </div>
+        <!-- Tabbed: Key Levels / Nearest Wall -->
+        <div style="border:1px solid var(--ln);overflow:hidden">
+          <!-- Tab bar -->
+          <div style="display:flex;background:var(--bg)">
+            <button id="tab-btn-kl" onclick="switchInfoTab('kl')" style="flex:1;font-family:var(--mono);font-size:7px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:7px 0;cursor:pointer;border:none;border-bottom:2px solid rgba(255,255,255,0.5);background:transparent;color:rgba(255,255,255,0.7)">Key Levels</button>
+            <button id="tab-btn-wa" onclick="switchInfoTab('wa')" style="flex:1;font-family:var(--mono);font-size:7px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:7px 0;cursor:pointer;border:none;border-bottom:2px solid transparent;background:transparent;color:rgba(255,255,255,0.25)">Nearest Wall</button>
+          </div>
+          <!-- Key Levels pane -->
+          <div id="tab-pane-kl" class="kl-panel" id="kl-panel" style="border:none"></div>
+          <!-- Nearest Wall pane -->
+          <div id="tab-pane-wa" style="display:none;padding:9px 13px 10px;font-family:var(--mono)">
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+              <span style="width:5px;height:5px;border-radius:50%;background:rgba(255,180,0,0.9);flex-shrink:0;animation:blink 1s ease-in-out infinite"></span>
+              <span style="font-size:6px;letter-spacing:2px;color:rgba(255,180,0,0.6);text-transform:uppercase;font-weight:600">Nearest Wall</span>
+              <span id="wa-label" style="margin-left:auto;font-size:7px;color:rgba(255,255,255,0.3)">—</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px">
+              <span id="wa-price" style="font-size:16px;font-weight:600;color:rgba(255,180,0,0.95);letter-spacing:-.5px">—</span>
+              <span id="wa-dist" style="font-size:9px;color:rgba(255,180,0,0.55)">—</span>
+            </div>
+            <div style="border-top:1px solid rgba(255,180,0,0.12);margin-top:7px;padding-top:6px">
+              <div style="font-size:6px;letter-spacing:1.5px;color:rgba(255,255,255,0.2);text-transform:uppercase;margin-bottom:3px">DEX at this strike</div>
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span id="wa-dex" style="font-size:14px;font-weight:500">—</span>
+                <span id="wa-interp" style="font-size:8px;color:rgba(255,255,255,0.28)">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sec-head" style="display:flex;align-items:center">
+            GEX Topography
+            <button class="gk-btn" onclick="toggleTopoFullscreen()" style="margin-left:auto;padding:2px 8px;font-size:7px">⛶</button>
+          </div>
+          <div id="topo-wrap" style="position:relative;height:340px;min-height:340px">
+            <div id="topo-chart" style="position:absolute;inset:0;width:100%;height:100%"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- HEATMAP VIEW -->
+    <div id="view-HEAT" style="display:none;flex:1;min-width:0;flex-direction:column;overflow:hidden">
+      <div id="heat-scroll" style="flex:1;overflow:auto;padding:8px 12px;position:relative">
+        <canvas id="heat-canvas" style="display:block"></canvas>
+      </div>
+    </div>
+
+    <!-- TABLE VIEW -->
+    <div id="view-TABLE" style="display:none;flex:1;min-width:0;padding:12px 16px;overflow-y:auto">
+      <select class="sort-sel" id="sort-sel" onchange="renderTable()">
+        <option value="abs">Top Abs GEX</option>
+        <option value="call">Top Call Walls</option>
+        <option value="put">Top Put Walls</option>
+        <option value="close">Closest to Spot</option>
+      </select>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr id="table-head"></tr></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+</div>
+</div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────────
+const R=0.043;
+const DIV={SPX:0.013,NDX:0.006,SPY:0.013,QQQ:0.006};
+const ASSETS={
+  SPX:{equiv:'ES Equiv',equivLabel:'ES',cboe:'_SPX',q:0.013},
+  NDX:{equiv:'NQ Equiv',equivLabel:'NQ',cboe:'_NDX',q:0.006},
+  SPY:{equiv:'ES Equiv',equivLabel:'ES',cboe:'SPY', q:0.013},
+  QQQ:{equiv:'NQ Equiv',equivLabel:'NQ',cboe:'QQQ', q:0.006},
+};
+const PROXY_URL='https://gex-terminal-uv9n.onrender.com';
+
+// ── STATE ──────────────────────────────────────────────────────
+let SYM='SPX', NEXP=1, MODE='GEX', GEXMODE='NET', ZOOM=0.20;
+let DATA=null, RAW_CACHE={}, CD=60, CDT=null;
+
+// ── CLOCK ──────────────────────────────────────────────────────
+function tickClock(){
+  const e=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+  const p=n=>String(n).padStart(2,'0');
+  document.getElementById('live-clock').textContent=p(e.getHours())+':'+p(e.getMinutes())+':'+p(e.getSeconds())+' ET';
+}
+setInterval(tickClock,1000);tickClock();
+
+function startCD(){
+  CD=60;if(CDT)clearInterval(CDT);
+  CDT=setInterval(()=>{CD--;document.getElementById('cdown').textContent=CD;if(CD<=0){loadAndRender();CD=60;}},1000);
+}
+
+// ── UI CONTROLS ────────────────────────────────────────────────
+function setAsset(sym,btn){
+  SYM=sym;
+  document.querySelectorAll('.asset-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('asset-label').textContent=sym;
+  document.getElementById('equiv-label').textContent=ASSETS[sym].equiv.toUpperCase();
+  loadAndRender();
+}
+function setExp(n){
+  NEXP=n;
+  document.getElementById('exp-val').textContent=n;
+  for(let i=1;i<=4;i++){
+    document.getElementById('expb'+i).classList.toggle('on',i===n);
+    document.querySelectorAll('.exp-pip')[i-1].classList.toggle('active',i<=n);
+  }
+  const cached=RAW_CACHE[SYM];
+  if(cached&&Date.now()-cached.ts<900000) processAndRender(cached.raw);
+  else loadAndRender();
+}
+function setMode(m){
+  MODE=m;
+  ['GEX','HEAT','TABLE'].forEach(v=>{
+    const mb=document.getElementById('mb-'+v);if(mb)mb.classList.toggle('on',v===m);
+    const vw=document.getElementById('view-'+v);if(vw)vw.style.display='none';
+  });
+  if(m==='GEX'){ document.getElementById('view-GEX').style.display='flex'; if(DATA){renderGEX();renderTopo();} }
+  if(m==='HEAT'){ document.getElementById('view-HEAT').style.display='flex'; if(DATA)renderHeat(); }
+  if(m==='TABLE'){ document.getElementById('view-TABLE').style.display='block'; if(DATA)renderTable(); }
+}
+function setGEXMode(m){
+  GEXMODE=m;
+  document.querySelectorAll('.gk-btn[id^="gkb-"]').forEach(b=>b.classList.remove('on'));
+  document.getElementById('gkb-'+m).classList.add('on');
+  renderGEX();
+  renderKL();
+  renderActiveTile();
+}
+function switchInfoTab(tab){
+  var isKL=tab==='kl';
+  document.getElementById('tab-pane-kl').style.display=isKL?'block':'none';
+  document.getElementById('tab-pane-wa').style.display=isKL?'none':'block';
+  var bkl=document.getElementById('tab-btn-kl'),bwa=document.getElementById('tab-btn-wa');
+  bkl.style.borderBottomColor=isKL?'rgba(255,255,255,0.5)':'transparent';
+  bkl.style.color=isKL?'rgba(255,255,255,0.7)':'rgba(255,255,255,0.25)';
+  bwa.style.borderBottomColor=isKL?'transparent':'rgba(255,180,0,0.8)';
+  bwa.style.color=isKL?'rgba(255,255,255,0.25)':'rgba(255,180,0,0.8)';
+}
+
+let _zoomTimer=null;
+function setZoomSlider(val){
+  ZOOM=parseInt(val)/100;
+  document.getElementById('zoom-lbl').textContent=val;
+  if(!DATA)return;
+  // Debounce: only full re-render 200ms after slider stops
+  clearTimeout(_zoomTimer);
+  _zoomTimer=setTimeout(()=>renderGEX(), 200);
+}
+function toggleTopoFullscreen(){
+  const el=document.getElementById('topo-wrap');
+  const inFS=document.fullscreenElement||document.webkitFullscreenElement;
+  if(!inFS)(el.requestFullscreen||el.webkitRequestFullscreen).call(el);
+  else(document.exitFullscreen||document.webkitExitFullscreen).call(document);
+}
+['fullscreenchange','webkitfullscreenchange'].forEach(ev=>{
+  document.addEventListener(ev,()=>{ setTimeout(()=>Plotly.Plots.resize('topo-chart'),250); });
+});
+function showLoad(t,s){document.getElementById('ov-txt').textContent=t||'LOADING';document.getElementById('ov-sub').textContent=s||'';document.getElementById('loadOverlay').classList.remove('hidden');}
+function hideLoad(){document.getElementById('loadOverlay').classList.add('hidden');}
+window.addEventListener('resize',()=>{ if(!DATA) return; if(MODE==='GEX'){renderGEX();Plotly.Plots.resize('topo-chart');}else if(MODE==='HEAT') renderHeat(); });
+
+// ── BLACK-SCHOLES ──────────────────────────────────────────────
+function d1d2(S,K,T,r,q,sig){if(T<=0||sig<=0||S<=0||K<=0)return[NaN,NaN];const sv=sig*Math.sqrt(T),d1=(Math.log(S/K)+(r-q+.5*sig*sig)*T)/sv;return[d1,d1-sv];}
+function normpdf(x){return Math.exp(-.5*x*x)/Math.sqrt(2*Math.PI);}
+function normcdf(x){const t=1/(1+.2316419*Math.abs(x)),d=normpdf(x),p=d*t*(.31938+t*(-.35656+t*(1.78148+t*(-1.82126+t*1.33027))));return x>=0?1-p:p;}
+function bsGamma(S,K,T,r,q,sig){const[d1]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;return Math.exp(-q*T)*normpdf(d1)/(S*sig*Math.sqrt(T));}
+function bsDelta(S,K,T,r,q,sig,flag){const[d1]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;return flag==='C'?Math.exp(-q*T)*normcdf(d1):-Math.exp(-q*T)*normcdf(-d1);}
+function bsVega(S,K,T,r,q,sig){const[d1]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;return S*Math.exp(-q*T)*normpdf(d1)*Math.sqrt(T);}
+function bsCharm(S,K,T,r,q,sig,flag){const[d1,d2]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;const c=-Math.exp(-q*T)*normpdf(d1)*(2*(r-q)*T-d2*sig*Math.sqrt(T))/(2*T*sig*Math.sqrt(T));return flag==='C'?c-q*Math.exp(-q*T)*normcdf(d1):c+q*Math.exp(-q*T)*normcdf(-d1);}
+function bsVanna(S,K,T,r,q,sig){const[d1,d2]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;return-Math.exp(-q*T)*normpdf(d1)*d2/sig;}
+function bsPrice(S,K,T,r,q,sig,flag){const[d1,d2]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;return flag==='C'?S*Math.exp(-q*T)*normcdf(d1)-K*Math.exp(-r*T)*normcdf(d2):K*Math.exp(-r*T)*normcdf(-d2)-S*Math.exp(-q*T)*normcdf(-d1);}
+function bsTheta(S,K,T,r,q,sig,flag){const[d1,d2]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;const t1=-S*Math.exp(-q*T)*normpdf(d1)*sig/(2*Math.sqrt(T));if(flag==='C')return(t1-r*K*Math.exp(-r*T)*normcdf(d2)+q*S*Math.exp(-q*T)*normcdf(d1))/365;return(t1+r*K*Math.exp(-r*T)*normcdf(-d2)-q*S*Math.exp(-q*T)*normcdf(-d1))/365;}
+function bsVomma(S,K,T,r,q,sig){const[d1,d2]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;return S*Math.exp(-q*T)*normpdf(d1)*Math.sqrt(T)*d1*d2/sig;}
+function bsZomma(S,K,T,r,q,sig){const[d1,d2]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;return Math.exp(-q*T)*normpdf(d1)*(d1*d2-1)/(S*sig*sig*Math.sqrt(T));}
+function bsVeta(S,K,T,r,q,sig){const[d1,d2]=d1d2(S,K,T,r,q,sig);if(isNaN(d1))return 0;return-S*Math.exp(-q*T)*normpdf(d1)*Math.sqrt(T)*(q+(r-q)*d1/(sig*Math.sqrt(T))-((1+d1*d2)/(2*T)))/365;}
+function impliedVol(mid,S,K,T,r,q,flag){if(T<=0||mid<=0)return NaN;const intrinsic=Math.max(0,flag==='C'?S-K:K-S);if(mid<=intrinsic+1e-4)return NaN;const f=v=>bsPrice(S,K,T,r,q,v,flag)-mid;let lo=1e-5,hi=5,flo=f(lo),fhi=f(hi);if(flo*fhi>0)return NaN;for(let i=0;i<60;i++){const m2=(lo+hi)/2,fm=f(m2);if(Math.abs(fm)<1e-6||Math.abs(hi-lo)<1e-7)return m2<.005||m2>5?NaN:m2;flo*fm<0?(hi=m2,fhi=fm):(lo=m2,flo=fm);}return NaN;}
+
+// ── PROXY FETCH ────────────────────────────────────────────────
+async function getChain(sym){
+  const r=await fetch(PROXY_URL+'/chain/'+sym,{cache:'no-store'});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||'Proxy HTTP '+r.status);}
+  const j=await r.json();
+  if(j.error)throw new Error(j.error);
+  if(j.data&&j.data.options)return j.data;
+  if(j.options)return{data:j};
+  return j;
+}
+
+// ── PARSE OPTION SYMBOL ────────────────────────────────────────
+function parseSymbol(sym){const m=sym.match(/(\d{6})([CP])(\d{8})$/);if(!m)return null;const[,ds,flag,ks]=m;return{exp:'20'+ds.slice(0,2)+'-'+ds.slice(2,4)+'-'+ds.slice(4,6),flag,strike:parseInt(ks)/1000};}
+
+// ── PROCESS CHAIN ──────────────────────────────────────────────
+function processChain(rawData,sym,maxExp){
+  const opts=rawData.data.options||[], spot=parseFloat(rawData.data.current_price), q=DIV[sym]||0.01;
+  const byExp={};
+  for(const o of opts){const p=parseSymbol(o.option||'');if(!p)continue;if(!byExp[p.exp])byExp[p.exp]=[];byExp[p.exp].push({...o,_exp:p.exp,_flag:p.flag,_strike:p.strike});}
+  const todayUTC=new Date();todayUTC.setUTCHours(0,0,0,0);
+  const sortedExps=Object.keys(byExp).map(e=>({e,dte:Math.round((new Date(e+'T00:00:00Z')-todayUTC)/86400000)})).filter(x=>x.dte>=0&&x.dte<=90).sort((a,b)=>a.dte-b.dte).slice(0,maxExp).map(x=>x.e);
+  const allRows=[];
+  for(const exp of sortedExps){
+    const days=Math.round((new Date(exp+'T00:00:00Z')-todayUTC)/86400000);
+    const T=Math.max(days,.5)/365;
+    const atmOpts=(byExp[exp]||[]).filter(o=>Math.abs(o._strike-spot)/spot<.02);
+    const atmIVs=atmOpts.map(o=>parseFloat(o.iv||0)).filter(v=>v>.05);
+    const atmIVbase=atmIVs.length?atmIVs.reduce((a,b)=>a+b,0)/atmIVs.length:.20;
+    for(const o of byExp[exp]||[]){
+      const K=o._strike,flag=o._flag;if(K<=0)continue;
+      const distPct=Math.abs(K-spot)/spot;
+      const maxDist=(sym==='NDX'||sym==='SPX')?.06:.08;if(distPct>maxDist)continue;
+      const oi=parseFloat(o.open_interest||0),vol=parseFloat(o.volume||0);
+      const oiMin=sym==='NDX'?10:sym==='QQQ'?50:100;if(oi<oiMin)continue;
+      const bid=parseFloat(o.bid||0),ask=parseFloat(o.ask||0);
+      const mid=(bid>0&&ask>0)?(bid+ask)/2:0;
+      let iv=NaN;
+      if(mid>.05)iv=impliedVol(mid,spot,K,T,R,q,flag);
+      if(isNaN(iv)||iv<=.005){const ivr=parseFloat(o.iv||0);if(ivr>.05)iv=ivr;else if(mid>.05)iv=atmIVbase*(1+distPct*.5);else continue;}
+      iv=Math.min(iv,1.5);
+      const gamma=bsGamma(spot,K,T,R,q,iv),delta=bsDelta(spot,K,T,R,q,iv,flag),vega=bsVega(spot,K,T,R,q,iv),charm=bsCharm(spot,K,T,R,q,iv,flag),vanna=bsVanna(spot,K,T,R,q,iv),theta=bsTheta(spot,K,T,R,q,iv,flag),vomma=bsVomma(spot,K,T,R,q,iv),zomma=bsZomma(spot,K,T,R,q,iv),veta=bsVeta(spot,K,T,R,q,iv);
+      const gexOI=gamma*oi*100*(spot**2)*.01/1e9,gexVol=gamma*vol*100*(spot**2)*.01/1e9;
+      allRows.push({strike:K,exp,dte:days,flag,oi,vol,bid,ask,mid,iv,delta,gamma,vega,charm,vanna,
+        callGex:flag==='C'?gexOI:0,putGex:flag==='P'?-gexOI:0,callVgex:flag==='C'?gexVol:0,putVgex:flag==='P'?-gexVol:0,
+        dex:delta*oi*100,vex:vega*oi*100/1e6,cex:charm*oi*100/1e6,tex:theta*oi*100,vmx:vomma*oi*100,zmx:zomma*oi*100,vtx:veta*oi*100});
+    }
+  }
+  return{raw:allRows,spot};
+}
+
+// ── AGGREGATE ──────────────────────────────────────────────────
+function aggregate(rows,spot){
+  const m={};
+  for(const r of rows){
+    if(!m[r.strike])m[r.strike]={strike:r.strike,callGex:0,putGex:0,callVgex:0,putVgex:0,dex:0,vex:0,cex:0,tex:0,vmx:0,zmx:0,vtx:0,oi:0,vol:0,ivSum:0,ivN:0,callOI_sum:0,putOI_sum:0};
+    const g=m[r.strike];
+    g.callGex+=r.callGex;g.putGex+=r.putGex;g.callVgex+=r.callVgex;g.putVgex+=r.putVgex;
+    g.dex+=r.dex;g.vex+=r.vex;g.cex+=r.cex;g.tex+=(r.tex||0);g.vmx+=(r.vmx||0);g.zmx+=(r.zmx||0);g.vtx+=(r.vtx||0);g.oi+=r.oi;g.vol+=r.vol;
+    if(r.flag==='C')g.callOI_sum+=r.oi;else g.putOI_sum+=r.oi;
+    if(r.iv>0){g.ivSum+=r.iv;g.ivN++;}
+  }
+  return Object.values(m).map(g=>({...g,gexNet:g.callGex+g.putGex,vgexNet:g.callVgex+g.putVgex,absGex:Math.abs(g.callGex+g.putGex),iv:g.ivN?g.ivSum/g.ivN:0,distPct:(g.strike-spot)/spot*100,callOI:g.callOI_sum||0,putOI:g.putOI_sum||0})).sort((a,b)=>a.strike-b.strike);
+}
+
+// ── KEY LEVELS ─────────────────────────────────────────────────
+// Base GEX levels — always computed from GEX data (gamma flip is always GEX-based)
+function computeKeyLevels(agg,spot){
+  const sorted=[...agg].sort((a,b)=>a.strike-b.strike);
+  const cum=[];let s=0;for(const r of sorted){s+=r.gexNet;cum.push(s);}
+  let gflip=spot*.99;for(let i=0;i<cum.length-1;i++){if(cum[i]*cum[i+1]<0){gflip=sorted[i+1].strike;break;}}
+  const pos=agg.filter(r=>r.gexNet>0),neg=agg.filter(r=>r.gexNet<0);
+  const callWall=pos.length?pos.reduce((a,b)=>b.gexNet>a.gexNet?b:a).strike:spot*1.01;
+  const putWall=neg.length?neg.reduce((a,b)=>b.gexNet<a.gexNet?b:a).strike:spot*.99;
+  const mp_strikes=sorted.map(r=>r.strike);
+  const callOIs=sorted.map(r=>r.oi*(r.callGex>0?1:0));
+  const putOIs=sorted.map(r=>r.oi*(r.putGex<0?1:0));
+  let minPain=Infinity,maxPain=spot;
+  for(let i=0;i<mp_strikes.length;i++){const K=mp_strikes[i];let pain=0;for(let j=0;j<mp_strikes.length;j++){if(mp_strikes[j]<K)pain+=(K-mp_strikes[j])*callOIs[j]*100;if(mp_strikes[j]>K)pain+=(mp_strikes[j]-K)*putOIs[j]*100;}if(pain<minPain){minPain=pain;maxPain=K;}}
+  const vtRow=agg.reduce((a,b)=>Math.abs(b.vgexNet)>Math.abs(a.vgexNet)?b:a,agg[0]);
+  const mRow=agg.reduce((a,b)=>Math.abs(b.vgexNet)>Math.abs(a.vgexNet)?b:a,agg[0]);
+  return{gflip,callWall,putWall,maxPain,volTrig:vtRow?vtRow.strike:spot,momWall:mRow?mRow.strike:null,momVal:mRow?mRow.vgexNet:0};
+}
+
+// Mode-specific levels — recomputed per active greek-bar mode
+function computeModeLevels(agg, spot, mode){
+  const sorted=[...agg].sort((a,b)=>a.strike-b.strike);
+  // Gamma flip is always GEX-based (it's a structural dealer positioning concept)
+  const cum=[];let s=0;for(const r of sorted){s+=r.gexNet;cum.push(s);}
+  let gflip=spot*.99;for(let i=0;i<cum.length-1;i++){if(cum[i]*cum[i+1]<0){gflip=sorted[i+1].strike;break;}}
+
+  // Pick the field that drives levels for this mode
+  const cfg={
+    NET:  {key:'gexNet',    posLabel:'Call Wall', negLabel:'Put Wall',  flipLabel:'Zero Gamma'},
+    GEX:  {key:'gexNet',    posLabel:'Call Wall', negLabel:'Put Wall',  flipLabel:'Zero Gamma'},
+    VEX:  {key:'vgexNet',   posLabel:'Vol Wall+', negLabel:'Vol Wall−', flipLabel:'Zero Vol-GEX'},
+    DEX:  {key:'dex',       posLabel:'Long Wall', negLabel:'Short Wall',flipLabel:'Delta Neutral'},
+    OI:   {key:'oi',        posLabel:'OI Peak',   negLabel:'OI Support',flipLabel:'Zero Gamma'},
+    CHARM:{key:'cex',       posLabel:'Charm+',    negLabel:'Charm−',    flipLabel:'Zero Gamma'},
+    VANNA:{key:'vex',       posLabel:'Vanna+',    negLabel:'Vanna−',    flipLabel:'Zero Gamma'},
+    THETA:{key:'tex',       posLabel:'Theta+',    negLabel:'Theta−',    flipLabel:'Zero Gamma'},
+    VOMMA:{key:'vmx',       posLabel:'Vomma+',    negLabel:'Vomma−',    flipLabel:'Zero Gamma'},
+    ZOMMA:{key:'zmx',       posLabel:'Zomma+',    negLabel:'Zomma−',    flipLabel:'Zero Gamma'},
+    VETA: {key:'vtx',       posLabel:'Veta+',     negLabel:'Veta−',     flipLabel:'Zero Gamma'},
+  }[mode] || {key:'gexNet', posLabel:'Call Wall', negLabel:'Put Wall', flipLabel:'Zero Gamma'};
+
+  const vals=sorted.map(r=>r[cfg.key]||0);
+  const maxVal=Math.max(...vals);
+  const minVal=Math.min(...vals);
+  const topPos=sorted[vals.indexOf(maxVal)];
+  const topNeg=sorted[vals.indexOf(minVal)];
+
+  // For OI: find above/below spot separately
+  let upperWall, lowerWall;
+  if(mode==='OI'){
+    const above=sorted.filter(r=>r.strike>spot);
+    const below=sorted.filter(r=>r.strike<spot);
+    upperWall=above.length?above.reduce((a,b)=>(b.oi>a.oi?b:a)).strike:spot*1.01;
+    lowerWall=below.length?below.reduce((a,b)=>(b.oi>a.oi?b:a)).strike:spot*0.99;
+  } else {
+    upperWall=topPos?topPos.strike:spot*1.01;
+    lowerWall=topNeg?topNeg.strike:spot*0.99;
+  }
+
+  // For DEX: compute the zero-crossing (delta-neutral point)
+  let modeFip=gflip;
+  if(mode==='DEX'||mode==='VEX'){
+    const cum2=[];let s2=0;for(const v of vals){s2+=v;cum2.push(s2);}
+    for(let i=0;i<cum2.length-1;i++){if(cum2[i]*cum2[i+1]<0){modeFip=sorted[i+1].strike;break;}}
+  }
+
+  return{
+    gflip:modeFip,
+    callWall:upperWall,
+    putWall:lowerWall,
+    posLabel:cfg.posLabel,
+    negLabel:cfg.negLabel,
+    flipLabel:cfg.flipLabel,
+  };
+}
+
+// ── EQUIV RATIO ────────────────────────────────────────────────
+async function getEquivRatio(sym,spot){
+  if(sym==='SPX'||sym==='NDX')return 1.0;
+  const ticker=sym==='SPY'?'ES%3DF':'NQ%3DF';
+  try{const j=await fetch('https://query1.finance.yahoo.com/v8/finance/chart/'+ticker+'?interval=1m&range=1d',{headers:{'User-Agent':'Mozilla/5.0','Accept':'application/json'}}).then(r=>r.json());const p=j?.chart?.result?.[0]?.meta?.regularMarketPrice;if(p&&p>1000)return p/spot;}catch(e){}
+  return sym==='SPY'?10:42;
+}
+
+// ── FLOW ───────────────────────────────────────────────────────
+function computeFlow(raw){let bull=0,bear=0;for(const r of raw){const mid=r.mid||((r.bid+r.ask)/2)||.01,spread=Math.max(r.ask-r.bid,.001),aggr=Math.min(1,Math.max(0,(r.mid-r.bid)/spread)),dv=mid*100*r.vol;if(r.flag==='C'){bull+=dv*aggr;bear+=dv*(1-aggr);}else{bear+=dv*aggr;bull+=dv*(1-aggr);}}const total=bull+bear;return{ratio:total>0?bull/total:.5,net:bull-bear};}
+function computeATMiv(raw,spot){const near=raw.filter(r=>Math.abs(r.strike-spot)/spot<.01);if(!near.length)return 0;const ivs=near.map(r=>r.iv).filter(v=>v>.005);return ivs.length?ivs.reduce((a,b)=>a+b,0)/ivs.length:0;}
+
+// ── REGIME ─────────────────────────────────────────────────────
+function computeRegime(agg,kl,spot,flow,atmIV){
+  const totalGex=agg.reduce((a,b)=>a+b.gexNet,0);
+  const totalVex=agg.reduce((a,b)=>a+b.vex,0);
+  const totalDex=agg.reduce((a,b)=>a+b.dex,0);
+  const posGex=agg.filter(r=>r.gexNet>0).reduce((a,b)=>a+b.gexNet,0);
+  const negGex=Math.abs(agg.filter(r=>r.gexNet<0).reduce((a,b)=>a+b.gexNet,0));
+  const gexRatio=negGex>0?posGex/negGex:2;
+  const aboveFlip=spot>kl.gflip,posGamma=totalGex>0,bullFlow=flow.ratio>.52,bearFlow=flow.ratio<.48,highIV=atmIV>20;
+  let score=0;
+  if(aboveFlip)score++;else score--;if(posGamma)score++;else score--;if(gexRatio>1.2)score++;else if(gexRatio<.8)score--;if(bullFlow)score++;else if(bearFlow)score--;if(totalDex>0)score++;else score--;if(totalVex<0)score--;if(highIV)score--;
+  let regime,color,sub;
+  if(!posGamma&&score<=-3){regime='SQUEEZE RISK';color='rgba(255,60,60,0.9)';sub='Short gamma · high vol · bearish flow';}
+  else if(!posGamma&&score<=-1){regime='NEGATIVE GAMMA';color='rgba(220,100,80,0.9)';sub='Dealers short · amplified moves';}
+  else if(posGamma&&score>=3){regime='PINNED · BULL';color='rgba(60,200,120,0.9)';sub='Positive gamma · bullish flow · above flip';}
+  else if(posGamma&&score>=1){regime='POSITIVE GAMMA';color='rgba(100,180,130,0.9)';sub='Dealers long · dampened volatility';}
+  else if(score===0){regime='TRANSITIONAL';color='rgba(180,180,180,0.7)';sub='Mixed signals · near gamma flip';}
+  else if(score>0){regime='MILDLY BULLISH';color='rgba(120,180,140,0.8)';sub='Net positive signals';}
+  else{regime='MILDLY BEARISH';color='rgba(180,120,120,0.8)';sub='Net negative signals';}
+  return{regime,color,sub,gexRatio};
+}
+
+// ── PLOTLY BASE ────────────────────────────────────────────────
+const PBASE={template:'none',paper_bgcolor:'#08090c',plot_bgcolor:'#08090c',font:{family:'IBM Plex Mono,monospace',color:'#5a6880',size:10},showlegend:false,hovermode:'closest',hoverlabel:{bgcolor:'#12151d',bordercolor:'rgba(255,255,255,0.07)',font:{family:'IBM Plex Mono',size:10,color:'#dde4ef'}}};
+
+// ── RENDER GEX ─────────────────────────────────────────────────
+function renderGEX(){
+  if(!DATA)return;
+  const{agg,spot,kl,equivRatio}=DATA,cfg=ASSETS[SYM];
+  const diffs=agg.slice(1).map((r,i)=>r.strike-agg[i].strike).filter(d=>d>0);
+  const spacing=diffs.length?diffs.sort((a,b)=>a-b)[Math.floor(diffs.length/2)]*.82:5;
+  const C_POS='rgba(120,200,140,0.9)',C_NEG='rgba(200,100,100,0.9)',C_CALL='rgba(90,160,220,0.85)',C_PUT='rgba(200,100,100,0.85)';
+  let traces=[],xTitle='',xRange=null;
+  if(GEXMODE==='NET'){const vals=agg.map(r=>r.gexNet),mx=Math.max(...vals.map(Math.abs),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:vals,width:spacing,marker:{color:vals.map(v=>v>=0?C_POS:C_NEG),line:{width:0},opacity:.9},customdata:agg.map(r=>[(r.strike*equivRatio).toFixed(2),r.callGex.toFixed(4),r.putGex.toFixed(4),r.oi.toLocaleString(),r.vgexNet.toFixed(4)]),hovertemplate:'<b>Strike %{y}</b><br>'+cfg.equiv+': %{customdata[0]}<br>Net GEX: <b>%{x:.4f}B</b><br>Call: +%{customdata[1]}B  Put: %{customdata[2]}B<br>Vol-GEX: %{customdata[4]}B<br>OI: %{customdata[3]}<extra></extra>',name:'Net GEX'}];xTitle='Net OI-GEX ($B)';xRange=[-mx*1.35,mx*1.35];}
+  else if(GEXMODE==='GEX'){const mx=Math.max(...agg.map(r=>Math.max(r.callGex,Math.abs(r.putGex))),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:agg.map(r=>r.callGex),width:spacing*.45,offset:-spacing*.02,marker:{color:C_CALL,line:{width:0},opacity:.85},name:'Call GEX',hovertemplate:'Strike %{y}<br>Call GEX: <b>+%{x:.4f}B</b><extra></extra>'},{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:agg.map(r=>r.putGex),width:spacing*.45,offset:-spacing*.5,marker:{color:C_PUT,line:{width:0},opacity:.85},name:'Put GEX',hovertemplate:'Strike %{y}<br>Put GEX: <b>%{x:.4f}B</b><extra></extra>'}];xTitle='OI-GEX ($B)';xRange=[-mx*1.35,mx*1.35];}
+  else if(GEXMODE==='VEX'){const vals=agg.map(r=>r.vgexNet),mx=Math.max(...vals.map(Math.abs),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:vals,width:spacing,marker:{color:vals.map(v=>v>=0?C_POS:C_NEG),line:{width:0},opacity:.85},hovertemplate:'Strike %{y}<br>Vol-GEX: <b>%{x:.4f}B</b><extra></extra>',name:'VEX'}];xTitle='Net Vol-GEX ($B)';xRange=[-mx*1.35,mx*1.35];}
+  else if(GEXMODE==='DEX'){const vals=agg.map(r=>r.dex/1e6),mx=Math.max(...vals.map(Math.abs),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:vals,width:spacing,marker:{color:vals.map(v=>v>=0?'rgba(100,180,230,0.85)':C_NEG),line:{width:0},opacity:.85},hovertemplate:'Strike %{y}<br>DEX: <b>%{x:.2f}M</b><extra></extra>',name:'DEX'}];xTitle='Delta Exposure ($M)';xRange=[-mx*1.35,mx*1.35];}
+  else if(GEXMODE==='OI'){const mx=Math.max(...agg.map(r=>Math.max(r.callOI||0,r.putOI||0)),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:agg.map(r=>r.callOI||0),width:spacing*.45,offset:-spacing*.02,marker:{color:C_CALL,line:{width:0},opacity:.8},name:'Call OI',hovertemplate:'Strike %{y}<br>Call OI: <b>%{x:,.0f}</b><extra></extra>'},{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:agg.map(r=>-(r.putOI||0)),width:spacing*.45,offset:-spacing*.5,marker:{color:C_PUT,line:{width:0},opacity:.8},name:'Put OI',hovertemplate:'Strike %{y}<br>Put OI: <b>%{x:,.0f}</b><extra></extra>'}];xTitle='Open Interest';}
+  else if(GEXMODE==='CHARM'){const vals=agg.map(r=>r.cex||0),mx=Math.max(...vals.map(Math.abs),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:vals,width:spacing,marker:{color:vals.map(v=>v>=0?'rgba(200,180,100,0.85)':'rgba(180,100,200,0.85)'),line:{width:0},opacity:.85},hovertemplate:'Strike %{y}<br>Charm: <b>%{x:.4f}</b><extra></extra>',name:'CEX'}];xTitle='Charm Exposure';xRange=[-mx*1.35,mx*1.35];}
+  else if(GEXMODE==='VANNA'){const vals=agg.map(r=>r.vex||0),mx=Math.max(...vals.map(Math.abs),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:vals,width:spacing,marker:{color:vals.map(v=>v>=0?'rgba(140,200,180,0.85)':'rgba(200,140,100,0.85)'),line:{width:0},opacity:.85},hovertemplate:'Strike %{y}<br>Vanna: <b>%{x:.4f}</b><extra></extra>',name:'VANNA'}];xTitle='Vanna Exposure (dΔ/dσ)';xRange=[-mx*1.35,mx*1.35];}
+  else if(GEXMODE==='THETA'){const vals=agg.map(r=>r.tex||0),mx=Math.max(...vals.map(Math.abs),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:vals,width:spacing,marker:{color:vals.map(v=>v>=0?'rgba(255,200,80,0.85)':'rgba(180,80,80,0.85)'),line:{width:0},opacity:.85},hovertemplate:'Strike %{y}<br>Theta Exp: <b>%{x:.2f}</b><extra></extra>',name:'THETA'}];xTitle='Theta Exposure (daily decay $)';xRange=[-mx*1.35,mx*1.35];}
+  else if(GEXMODE==='VOMMA'){const vals=agg.map(r=>r.vmx||0),mx=Math.max(...vals.map(Math.abs),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:vals,width:spacing,marker:{color:vals.map(v=>v>=0?'rgba(100,180,255,0.85)':'rgba(255,100,160,0.85)'),line:{width:0},opacity:.85},hovertemplate:'Strike %{y}<br>Vomma Exp: <b>%{x:.4f}</b><extra></extra>',name:'VOMMA'}];xTitle='Vomma Exposure (dVega/dσ)';xRange=[-mx*1.35,mx*1.35];}
+  else if(GEXMODE==='ZOMMA'){const vals=agg.map(r=>r.zmx||0),mx=Math.max(...vals.map(Math.abs),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:vals,width:spacing,marker:{color:vals.map(v=>v>=0?'rgba(160,120,255,0.85)':'rgba(255,160,80,0.85)'),line:{width:0},opacity:.85},hovertemplate:'Strike %{y}<br>Zomma Exp: <b>%{x:.5f}</b><extra></extra>',name:'ZOMMA'}];xTitle='Zomma Exposure (dGamma/dσ)';xRange=[-mx*1.35,mx*1.35];}
+  else if(GEXMODE==='VETA'){const vals=agg.map(r=>r.vtx||0),mx=Math.max(...vals.map(Math.abs),1e-9);traces=[{type:'bar',orientation:'h',y:agg.map(r=>r.strike),x:vals,width:spacing,marker:{color:vals.map(v=>v>=0?'rgba(80,220,200,0.85)':'rgba(220,120,80,0.85)'),line:{width:0},opacity:.85},hovertemplate:'Strike %{y}<br>Veta Exp: <b>%{x:.4f}</b><extra></extra>',name:'VETA'}];xTitle='Veta Exposure (dVega/dt)';xRange=[-mx*1.35,mx*1.35];}
+  const fmtP=v=>v>=1000?v.toFixed(0):v.toFixed(2);
+  const allStrikes=agg.map(r=>r.strike);
+  // Compute mode-specific levels for chart lines
+  const ml=computeModeLevels(agg,spot,GEXMODE);
+  const band=spot*ZOOM,wallLo=Math.min(ml.putWall,ml.gflip,spot),wallHi=Math.max(ml.callWall,ml.gflip,spot);
+  const yLo=Math.min(spot-band,wallLo-band*.1),yHi=Math.max(spot+band,wallHi+band*.1);
+  const shapes=[
+    {type:'line',xref:'paper',x0:0,x1:1,y0:spot,y1:spot,line:{color:'rgba(255,255,255,0.55)',width:1.4}},
+    {type:'line',xref:'paper',x0:0,x1:1,y0:ml.gflip,y1:ml.gflip,line:{color:'rgba(255,255,255,0.3)',width:1,dash:'dot'}},
+    {type:'line',xref:'paper',x0:0,x1:1,y0:ml.callWall,y1:ml.callWall,line:{color:'rgba(100,220,120,0.5)',width:1,dash:'dash'}},
+    {type:'line',xref:'paper',x0:0,x1:1,y0:ml.putWall,y1:ml.putWall,line:{color:'rgba(220,80,80,0.5)',width:1,dash:'dash'}},
+  ];
+  const annotations=[
+    {xref:'paper',yref:'y',x:1.01,y:spot,text:'Spot '+fmtP(spot),showarrow:false,font:{color:'rgba(255,255,255,0.65)',size:8,family:'IBM Plex Mono'},xanchor:'left',bgcolor:'rgba(8,9,12,0.8)',borderpad:2},
+    {xref:'paper',yref:'y',x:1.01,y:ml.gflip,text:ml.flipLabel+' '+fmtP(ml.gflip),showarrow:false,font:{color:'rgba(255,255,255,0.45)',size:8,family:'IBM Plex Mono'},xanchor:'left',bgcolor:'rgba(8,9,12,0.8)',borderpad:2},
+    {xref:'paper',yref:'y',x:1.01,y:ml.callWall,text:ml.posLabel+' '+fmtP(ml.callWall),showarrow:false,font:{color:'rgba(80,220,110,0.85)',size:8,family:'IBM Plex Mono'},xanchor:'left',bgcolor:'rgba(8,9,12,0.8)',borderpad:2},
+    {xref:'paper',yref:'y',x:1.01,y:ml.putWall,text:ml.negLabel+' '+fmtP(ml.putWall),showarrow:false,font:{color:'rgba(220,80,80,0.85)',size:8,family:'IBM Plex Mono'},xanchor:'left',bgcolor:'rgba(8,9,12,0.8)',borderpad:2},
+  ];
+  const bmode=(GEXMODE==='GEX'||GEXMODE==='OI')?'group':'overlay';
+  // Height: 22px per visible strike so bars are readable; fills scroll container
+  var _sc=document.getElementById('gex-chart-scroll');
+  var _nb=allStrikes.filter(function(s){return s>=yLo&&s<=yHi;}).length||1;
+  var _cH=(_sc?_sc.offsetHeight:600);
+  var _barH=Math.max(_cH,_nb*22+80);
+  var _ch=document.getElementById('gex-chart');
+  if(_ch)_ch.style.height=_barH+'px';
+  Plotly.react('gex-chart',traces,{...PBASE,height:_barH,bargap:.1,barmode:bmode,shapes,annotations,
+    xaxis:{title:{text:xTitle,font:{size:9,color:'rgba(255,255,255,0.2)'}},range:xRange,gridcolor:'rgba(255,255,255,0.04)',zeroline:true,zerolinecolor:'rgba(255,255,255,0.1)',zerolinewidth:1,tickfont:{family:'IBM Plex Mono',size:9,color:'rgba(255,255,255,0.25)'}},
+    yaxis:{range:[yLo,yHi],gridcolor:'rgba(255,255,255,0.04)',tickfont:{family:'IBM Plex Mono',size:9,color:'rgba(255,255,255,0.35)'},title:{text:SYM+' Strike',font:{size:9,color:'rgba(255,255,255,0.2)'}},tickformat:allStrikes[0]>5000?',.0f':'.0f'},
+    margin:{t:4,r:130,b:46,l:68},showlegend:GEXMODE==='GEX'||GEXMODE==='OI',
+    legend:{font:{family:'IBM Plex Mono',size:8,color:'rgba(255,255,255,0.4)'},bgcolor:'transparent',bordercolor:'transparent',x:0,y:1}
+  },{responsive:false,displayModeBar:false});
+  // Scroll to center spot
+  if(_sc){
+    var _fr=(spot-yLo)/(yHi-yLo||1);
+    _sc.scrollTop=Math.max(0,(1-_fr)*_barH-_cH/2);
+  }
+}
+
+// ── RENDER TOPO — Plotly 3D surface matching Python build_gex_landscape ─
+function renderTopo(){
+  if(!DATA)return;
+  const{agg,spot}=DATA;
+  const wrap=document.getElementById('topo-wrap');
+  const tip=document.getElementById('topo-tip');
+
+  // ── Strike range: ±5% (matches Python's 0.95–1.05) ──────────────────
+  const topo=agg.filter(r=>Math.abs(r.strike-spot)/spot<=0.05);
+  if(topo.length<3)return;
+  const strikes=topo.map(r=>r.strike);
+  const gex=topo.map(r=>r.gexNet);
+  const nX=strikes.length;
+
+  // ── Depth envelope — sigma_d=0.32 (matches Python) ──────────────────
+  const ND=40;
+  const depth=Array.from({length:ND},(_,i)=>i/(ND-1));
+  const sigma_d=0.32;
+  const envelope=depth.map(d=>Math.exp(-0.5*(d/sigma_d)**2));
+
+  // ── Outer product: Z[depth][strike] = gex[strike] * envelope[depth] ─
+  const Z=depth.map((d,di)=>gex.map(g=>g*envelope[di]));
+
+  // ── 2D Gaussian blur — sigma [1.4 rows, 0.9 cols] (matches Python) ──
+  function gaussKernel(sig){
+    const kR=Math.max(1,Math.round(sig*3));
+    const k=Array.from({length:2*kR+1},(_,i)=>Math.exp(-0.5*((i-kR)/sig)**2));
+    const ks=k.reduce((a,b)=>a+b,0);
+    return{k:k.map(v=>v/ks),kR};
+  }
+  function blurRows(mat,sig){  // blur along depth axis (axis-0)
+    const{k,kR}=gaussKernel(sig);
+    const nR=mat.length,nC=mat[0].length;
+    return mat.map((_,di)=>Array.from({length:nC},(_,xi)=>{
+      let v=0;
+      for(let j=0;j<k.length;j++) v+=mat[Math.max(0,Math.min(nR-1,di-kR+j))][xi]*k[j];
+      return v;
+    }));
+  }
+  function blurCols(mat,sig){  // blur along strike axis (axis-1)
+    const{k,kR}=gaussKernel(sig);
+    const nR=mat.length,nC=mat[0].length;
+    return mat.map(row=>Array.from({length:nC},(_,xi)=>{
+      let v=0;
+      for(let j=0;j<k.length;j++) v+=row[Math.max(0,Math.min(nC-1,xi-kR+j))]*k[j];
+      return v;
+    }));
+  }
+  const Zs=blurCols(blurRows(Z,1.4),0.9);
+
+  const absMax=Math.max(...Zs.flat().map(Math.abs),1e-9);
+
+  // ── Colorscale from Python's Default theme surface_colorscale ────────
+  const cs=[
+    [0.00,'#FF0040'],[0.15,'#CC0030'],[0.30,'#7A0020'],
+    [0.45,'#1A0308'],[0.50,'#03070D'],[0.55,'#001A0A'],
+    [0.70,'#006633'],[0.85,'#00CC77'],[1.00,'#00FF99'],
+  ];
+  const BG='#08090c';
+
+  // Theme vars matching Python Default theme exactly
+  const LINE  = '#111E2E';   // chart_line
+  const LINE2 = '#192D44';   // chart_line2
+  const TEXT3 = '#4E7A9C';   // chart_t3
+  const SPOT  = '#C8DCEF';   // spot_line
+
+  Plotly.react('topo-chart',[
+    {type:'surface',x:strikes,y:depth,z:Zs,
+      colorscale:cs,cmin:-absMax,cmax:absMax,
+      showscale:false,opacity:1.0,
+      contours:{x:{show:false,highlight:false},y:{show:false,highlight:false},z:{show:false,highlight:false}},
+      hovertemplate:'<b>Strike: %{x:.0f}</b><br>Net GEX: %{z:.4f}B<extra></extra>',
+      lighting:{ambient:0.55,diffuse:0.9,specular:0.15,roughness:0.65,fresnel:0.08},
+      lightposition:{x:200,y:300,z:600}},
+    {type:'scatter3d',x:[spot,spot],y:[0,1],z:[0,0],
+      mode:'lines',line:{color:SPOT,width:2},
+      hoverinfo:'skip',showlegend:false},
+  ],{
+    height:340,paper_bgcolor:BG,
+    margin:{l:0,r:0,b:0,t:0},
+    hovermode:'closest',
+    hoverlabel:{bgcolor:'#0d0f14',bordercolor:'#192D44',font:{family:'IBM Plex Mono,monospace',size:10,color:'#dde4ef'}},
+    scene:{
+      xaxis:{title:'',showticklabels:true,tickfont:{size:7,color:TEXT3,family:'IBM Plex Mono,monospace'},showgrid:true,gridcolor:LINE,gridwidth:1,zeroline:false,backgroundcolor:BG,showspikes:false},
+      yaxis:{title:'',showticklabels:false,showgrid:false,zeroline:false,backgroundcolor:BG,showspikes:false},
+      zaxis:{title:'',showticklabels:true,tickfont:{size:7,color:TEXT3,family:'IBM Plex Mono,monospace'},showgrid:true,gridcolor:LINE,zeroline:true,zerolinecolor:LINE2,zerolinewidth:2,backgroundcolor:BG,showspikes:false},
+      camera:{eye:{x:-1.6,y:1.6,z:0.8},up:{x:0,y:0,z:1}},
+      bgcolor:BG,aspectmode:'manual',aspectratio:{x:2.5,y:0.6,z:0.8},
+    },
+    showlegend:false,
+  },{responsive:true,displayModeBar:false});
+}
+
+
+// ── ACTIVE MODE TILE ───────────────────────────────────────────
+function renderActiveTile(){
+  if(!DATA)return;
+  const{agg,spot}=DATA;
+  const ml=computeModeLevels(agg,spot,GEXMODE);
+  const fmtV=(v,d)=>(v>=0?'+':'')+v.toFixed(d);
+
+  const cfg={
+    NET:  {lbl:'NET GEX',    val:()=>fmtV(agg.reduce((a,b)=>a+b.gexNet,0),3)+'B',  sub:'total net gamma exposure',   color:'rgba(120,200,140,0.95)'},
+    GEX:  {lbl:'CALL/PUT',   val:()=>{const c=agg.reduce((a,b)=>a+b.callGex,0),p=agg.reduce((a,b)=>a+b.putGex,0);return(c>=0?'+':'')+c.toFixed(3)+' / '+p.toFixed(3);}, sub:'call GEX / put GEX', color:'rgba(100,180,230,0.95)'},
+    VEX:  {lbl:'VOL-GEX',    val:()=>fmtV(agg.reduce((a,b)=>a+b.vgexNet,0),3)+'B', sub:'net vega gamma exposure',    color:'rgba(100,180,255,0.95)'},
+    DEX:  {lbl:'DELTA EXP',  val:()=>fmtV(agg.reduce((a,b)=>a+b.dex,0)/1e6,2)+'M', sub:'net delta exposure',         color:'rgba(130,200,230,0.95)'},
+    OI:   {lbl:'OPEN INT',   val:()=>{const t=agg.reduce((a,b)=>a+b.oi,0);return t>=1e6?(t/1e6).toFixed(2)+'M':(t/1e3).toFixed(0)+'K';}, sub:'total open interest', color:'rgba(180,180,255,0.95)'},
+    CHARM:{lbl:'CHARM EXP',  val:()=>fmtV(agg.reduce((a,b)=>a+(b.cex||0),0),3),     sub:'delta decay per day',        color:'rgba(200,180,100,0.95)'},
+    VANNA:{lbl:'VANNA EXP',  val:()=>fmtV(agg.reduce((a,b)=>a+(b.vex||0),0),4),     sub:'delta sensitivity to vol',   color:'rgba(140,200,180,0.95)'},
+    THETA:{lbl:'THETA EXP',  val:()=>fmtV(agg.reduce((a,b)=>a+(b.tex||0),0),1)+'$', sub:'daily time decay',           color:'rgba(255,200,80,0.95)'},
+    VOMMA:{lbl:'VOMMA EXP',  val:()=>fmtV(agg.reduce((a,b)=>a+(b.vmx||0),0),3),     sub:'vega convexity',             color:'rgba(100,180,255,0.95)'},
+    ZOMMA:{lbl:'ZOMMA EXP',  val:()=>fmtV(agg.reduce((a,b)=>a+(b.zmx||0),0),5),     sub:'gamma sensitivity to vol',   color:'rgba(160,120,255,0.95)'},
+    VETA: {lbl:'VETA EXP',   val:()=>fmtV(agg.reduce((a,b)=>a+(b.vtx||0),0),4),     sub:'vega decay per day',         color:'rgba(80,220,200,0.95)'},
+  }[GEXMODE]||{lbl:'NET GEX',val:()=>'—',sub:'—',color:'rgba(255,255,255,0.5)'};
+
+  const tile=document.getElementById('et-active-tile');
+  const color=cfg.color;
+  tile.style.borderLeft='2px solid '+color;
+  tile.style.background='rgba(255,255,255,0.02)';
+  document.getElementById('et-active-lbl').textContent=cfg.lbl;
+  document.getElementById('et-active-lbl').style.color=color;
+  const val=cfg.val();
+  document.getElementById('et-active-val').textContent=val;
+  document.getElementById('et-active-val').style.color=color;
+  document.getElementById('et-active-sub').textContent=cfg.sub;
+
+  // Also update sidebar flip/wall labels
+  const gflipEl=document.getElementById('sb-gflip-lbl');
+  const cwallEl=document.getElementById('sb-cwall-lbl');
+  const pwallEl=document.getElementById('sb-pwall-lbl');
+  if(gflipEl)gflipEl.textContent=ml.flipLabel;
+  if(cwallEl)cwallEl.textContent=ml.posLabel;
+  if(pwallEl)pwallEl.textContent=ml.negLabel;
+}
+
+// ── WALL ALERT ─────────────────────────────────────────────────
+function checkWallAlert(agg, spot, ml){
+  // tab-pane-wa holds the wall content; wa-* elements are always in DOM
+  const walls=[
+    {price:ml.callWall, label:ml.posLabel},
+    {price:ml.putWall,  label:ml.negLabel},
+    {price:ml.gflip,    label:ml.flipLabel},
+  ];
+  let nearest=walls[0], nearestDist=Math.abs(spot-walls[0].price)/spot;
+  for(const w of walls.slice(1)){
+    const dist=Math.abs(spot-w.price)/spot;
+    if(dist<nearestDist){nearest=w;nearestDist=dist;}
+  }
+  const closest=agg.reduce((a,b)=>Math.abs(b.strike-nearest.price)<Math.abs(a.strike-nearest.price)?b:a);
+  const dex=closest?closest.dex/1e6:0;
+  const dexCol=dex>0?'rgba(100,200,150,0.95)':'rgba(220,90,90,0.95)';
+  const pct=(spot-nearest.price)/nearest.price*100;
+  const side=pct>0?'above':'below';
+  const interp=dex>0?'Dealers long Δ — buying support':'Dealers short Δ — selling pressure';
+  el.style.display='block';
+  document.getElementById('wa-price').textContent='$'+nearest.price.toFixed(2);
+  document.getElementById('wa-dist').textContent=Math.abs(pct).toFixed(2)+'% '+side;
+  document.getElementById('wa-label').textContent=nearest.label;
+  document.getElementById('wa-dex').textContent=(dex>=0?'+':'')+dex.toFixed(2)+'M';
+  document.getElementById('wa-dex').style.color=dexCol;
+  document.getElementById('wa-interp').textContent=interp;
+  // Pulse the Nearest Wall tab button to show it has live data
+  var _btn=document.getElementById('tab-btn-wa');
+  if(_btn&&_btn.style.color.indexOf('255,180')===- 1){
+    _btn.style.color='rgba(255,180,0,0.5)';
+  }
+}
+
+// ── RENDER KL ──────────────────────────────────────────────────
+function renderKL(){
+  if(!DATA)return;
+  const{agg,spot,kl}=DATA;
+  const fmtKL=v=>v>=1000?'$'+v.toFixed(0):'$'+v.toFixed(2);
+  const panel=document.getElementById('tab-pane-kl');
+  const ml=computeModeLevels(agg,spot,GEXMODE);
+
+  const GCFG={
+    NET:  {key:'gexNet',  posC:'rgba(80,210,110,0.9)',  negC:'rgba(210,80,80,0.9)',  hdr:'NET GEX Walls',  unit:'B',dec:4,scale:1},
+    GEX:  {key:'gexNet',  posC:'rgba(80,160,220,0.9)',  negC:'rgba(210,80,80,0.9)',  hdr:'GEX Walls',      unit:'B',dec:4,scale:1},
+    VEX:  {key:'vgexNet', posC:'rgba(100,180,255,0.9)', negC:'rgba(255,100,160,0.9)',hdr:'Vol-GEX Walls',  unit:'B',dec:4,scale:1},
+    DEX:  {key:'dex',     posC:'rgba(100,200,150,0.9)', negC:'rgba(210,80,80,0.9)',  hdr:'Delta Walls',    unit:'M',dec:2,scale:1/1e6},
+    OI:   {key:'oi',      posC:'rgba(180,160,255,0.9)', negC:'rgba(180,160,255,0.9)',hdr:'OI Walls',       unit:'K',dec:0,scale:1/1e3},
+    CHARM:{key:'cex',     posC:'rgba(200,180,100,0.9)', negC:'rgba(180,100,200,0.9)',hdr:'Charm Walls',    unit:'',dec:4,scale:1},
+    VANNA:{key:'vex',     posC:'rgba(140,200,180,0.9)', negC:'rgba(200,140,100,0.9)',hdr:'Vanna Walls',    unit:'',dec:4,scale:1},
+    THETA:{key:'tex',     posC:'rgba(255,200,80,0.9)',  negC:'rgba(200,100,100,0.9)',hdr:'Theta Walls',    unit:'$',dec:1,scale:1},
+    VOMMA:{key:'vmx',     posC:'rgba(100,180,255,0.9)', negC:'rgba(255,100,160,0.9)',hdr:'Vomma Walls',    unit:'',dec:3,scale:1},
+    ZOMMA:{key:'zmx',     posC:'rgba(160,120,255,0.9)', negC:'rgba(255,160,80,0.9)', hdr:'Zomma Walls',    unit:'',dec:5,scale:1},
+    VETA: {key:'vtx',     posC:'rgba(80,220,200,0.9)',  negC:'rgba(220,120,80,0.9)', hdr:'Veta Walls',     unit:'',dec:4,scale:1},
+  };
+  const gc=GCFG[GEXMODE]||GCFG.NET;
+
+  // ── Tabs ───────────────────────────────────────────────────────
+
+  // ── Strength (1–3 diamonds) ────────────────────────────────────
+  function wallStrength(val,siblings){
+    const sorted=[...siblings].sort((a,b)=>b-a);
+    const a=Math.abs(val);
+    const rank=sorted.findIndex(s=>s<=a+1e-12);
+    if(rank===0)return 3;
+    if(rank===1)return 2;
+    return 1;
+  }
+  function diamonds(n,col){
+    return '<span style="font-size:9px;letter-spacing:1px;color:'+col+'">'+
+      '\u25C6'.repeat(n)+'<span style="opacity:0.2">'+'\u25C7'.repeat(3-n)+'</span></span>';
+  }
+
+  const sorted=[...agg].sort((a,b)=>a.strike-b.strike);
+
+  const posRows=sorted.filter(r=>(r[gc.key]||0)>0).sort((a,b)=>Math.abs(b[gc.key]||0)-Math.abs(a[gc.key]||0)).slice(0,3);
+  const negRows=sorted.filter(r=>(r[gc.key]||0)<0).sort((a,b)=>Math.abs(b[gc.key]||0)-Math.abs(a[gc.key]||0)).slice(0,3);
+  const oiAbove=gc.key==='oi'?sorted.filter(r=>r.strike>spot).sort((a,b)=>(b.oi||0)-(a.oi||0)).slice(0,3):[];
+  const oiBelow=gc.key==='oi'?sorted.filter(r=>r.strike<=spot).sort((a,b)=>(b.oi||0)-(a.oi||0)).slice(0,3):[];
+  const posSibs=posRows.map(r=>Math.abs((r[gc.key]||0)*gc.scale));
+  const negSibs=negRows.map(r=>Math.abs((r[gc.key]||0)*gc.scale));
+  const oiAbsSibs=oiAbove.map(r=>(r.oi||0)*gc.scale);
+  const oiBelowSibs=oiBelow.map(r=>(r.oi||0)*gc.scale);
+
+  function wallRow(r,isPos,siblings){
+    const raw=(r[gc.key]||0)*gc.scale;
+    const str=wallStrength(raw,siblings);
+    const col=isPos?gc.posC:gc.negC;
+    const sign=raw>=0?'+':'';
+    const valStr=sign+Math.abs(raw).toFixed(gc.dec)+(gc.unit?' <span style="font-size:8px;opacity:0.55">'+gc.unit+'</span>':'');
+    const dist=(r.strike-spot)/spot*100;
+    const distStr=' <span style="font-size:8px;opacity:0.4">'+(dist>=0?'+':'')+dist.toFixed(1)+'%</span>';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 13px;border-bottom:1px solid rgba(255,255,255,0.04)">'
+      +'<div style="display:flex;align-items:center;gap:7px">'
+      +'<span style="width:3px;height:3px;border-radius:50%;background:'+col+'"></span>'
+      +'<span style="font-family:var(--mono);font-size:10px;font-weight:500;color:'+col+'">$'+r.strike.toFixed(0)+distStr+'</span>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +diamonds(str,col)
+      +'<span style="font-family:var(--mono);font-size:10px;font-weight:500;color:'+col+'">'+valStr+'</span>'
+      +'</div>'
+      +'</div>';
+  }
+
+  function sectionHd(label,col){
+    return '<div style="padding:4px 13px 3px;font-family:var(--mono);font-size:6px;letter-spacing:2px;text-transform:uppercase;color:'+col+';opacity:0.7;border-bottom:1px solid rgba(255,255,255,0.04)">'+label+'</div>';
+  }
+  const noData='<div style="padding:6px 13px;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,0.2)">No data</div>';
+
+  // ── Build HTML ────────────────────────────────────────────────
+  let html='<div class="kl-header">'+gc.hdr+'</div>';
+
+  if(gc.key==='oi'){
+    html+=sectionHd('Above Spot — Resistance','rgba(80,210,110,0.7)');
+    html+=oiAbove.length?oiAbove.map(r=>wallRow(r,true,oiAbsSibs)).join(''):noData;
+    html+=sectionHd('Below Spot — Support','rgba(210,80,80,0.7)');
+    html+=oiBelow.length?oiBelow.map(r=>wallRow(r,false,oiBelowSibs)).join(''):noData;
+  } else {
+    html+=sectionHd(ml.posLabel+' — Resistance','rgba(80,210,110,0.7)');
+    html+=posRows.length?posRows.map(r=>wallRow(r,true,posSibs)).join(''):noData;
+    html+=sectionHd(ml.negLabel+' — Support','rgba(210,80,80,0.7)');
+    html+=negRows.length?negRows.map(r=>wallRow(r,false,negSibs)).join(''):noData;
+  }
+
+  // ── Fixed price levels ────────────────────────────────────────
+  html+='<div style="padding:4px 13px 3px;font-family:var(--mono);font-size:6px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.15);border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.04);margin-top:2px">Price Levels</div>';
+  const fixedRows=[
+    ['rgba(255,255,255,0.85)','Spot',       fmtKL(spot)],
+    ['rgba(255,255,255,0.38)',ml.flipLabel,  fmtKL(ml.gflip)],
+    ['rgba(80,210,110,0.8)', ml.posLabel,   fmtKL(ml.callWall)],
+    ['rgba(210,80,80,0.8)',  ml.negLabel,   fmtKL(ml.putWall)],
+    ['rgba(200,180,100,0.7)','Max Pain',    fmtKL(kl.maxPain)],
+    ['rgba(180,160,100,0.55)','Vol Trigger',fmtKL(kl.volTrig)],
+  ];
+  for(const[col,name,val]of fixedRows)
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 13px;border-bottom:1px solid rgba(255,255,255,0.04)">'
+      +'<div style="display:flex;align-items:center;gap:7px">'
+      +'<span style="width:3px;height:3px;border-radius:50%;background:'+col+'"></span>'
+      +'<span style="font-family:var(--sans);font-size:9px;color:'+col+'">'+name+'</span>'
+      +'</div>'
+      +'<span style="font-family:var(--mono);font-size:10px;font-weight:500;color:'+col+'">'+val+'</span>'
+      +'</div>';
+
+  panel.innerHTML=html;
+
+  // ── Sidebar ───────────────────────────────────────────────────
+  document.getElementById('sb-spot').textContent=fmtKL(spot);
+  document.getElementById('sb-gflip-lbl').textContent=ml.flipLabel;
+  document.getElementById('sb-gflip').textContent=fmtKL(ml.gflip);
+  document.getElementById('sb-cwall-lbl').textContent=ml.posLabel;
+  document.getElementById('sb-cwall').textContent=fmtKL(ml.callWall);
+  document.getElementById('sb-cwall').style.color=ml.callWall>spot?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)';
+  document.getElementById('sb-pwall-lbl').textContent=ml.negLabel;
+  document.getElementById('sb-pwall').textContent=fmtKL(ml.putWall);
+  document.getElementById('sb-pwall').style.color=ml.putWall<spot?'rgba(200,100,100,0.9)':'rgba(120,200,140,0.9)';
+  document.getElementById('sb-mpain').textContent=fmtKL(kl.maxPain);
+  document.getElementById('sb-vtrig').textContent=fmtKL(kl.volTrig);
+  document.getElementById('sb-mwall').textContent=kl.momWall?fmtKL(kl.momWall):'—';
+
+  checkWallAlert(agg,spot,ml);
+}
+// ── RENDER HEATMAP (canvas) ────────────────────────────────────
+function renderHeat(){
+  if(!DATA)return;
+  const{raw,spot,kl}=DATA;
+  const sSet=new Set(),eSet=new Set();
+  for(const r of raw){sSet.add(r.strike);eSet.add(r.exp);}
+  const strikes=[...sSet].filter(s=>Math.abs(s-spot)/spot<=.08).sort((a,b)=>b-a);
+  const exps=[...eSet].sort();
+  if(!strikes.length||!exps.length)return;
+  const M={};
+  for(const r of raw){const k=r.strike+'|'+r.exp;M[k]=(M[k]||0)+(r.callGex+r.putGex);}
+  const scroll=document.getElementById('heat-scroll');
+  const CELL=64,LABEL_W=72,LABEL_H=52,nR=strikes.length,nC=exps.length;
+  const W=LABEL_W+nC*CELL,H=LABEL_H+nR*CELL;
+  const colMax=exps.map((_,ei)=>Math.max(...strikes.map(s=>Math.abs(M[s+'|'+exps[ei]]||0)),1e-12));
+  const canvas=document.getElementById('heat-canvas');
+  const DPR=window.devicePixelRatio||1;
+  canvas.width=W*DPR;canvas.height=H*DPR;
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');
+  ctx.scale(DPR,DPR);
+  ctx.fillStyle='#08090c';ctx.fillRect(0,0,W,H);
+  function cellColor(v){const t=Math.max(-1,Math.min(1,v));if(t>=0){const s=Math.pow(t,.5);return'rgb('+Math.round(8+s*16)+','+Math.round(9+s*159)+','+Math.round(12+s*28)+')';}else{const s=Math.pow(-t,.5);return'rgb('+Math.round(8+s*196)+','+Math.round(9+s*7)+','+Math.round(12+s*4)+')';}}
+  const fs=Math.max(7,Math.min(11,Math.floor(CELL*.26)));
+  // Draw cells
+  for(let ri=0;ri<nR;ri++)for(let ci=0;ci<nC;ci++){
+    const v=M[strikes[ri]+'|'+exps[ci]]||0;
+    const norm=Math.sign(v)*Math.pow(Math.abs(v)/colMax[ci],.45);
+    const x=LABEL_W+ci*CELL,y=LABEL_H+ri*CELL;
+    ctx.fillStyle=cellColor(norm);ctx.fillRect(x+1,y+1,CELL-1,CELL-1);
+    if(Math.abs(v)>.0005){
+      const a=Math.abs(v),txt=(v>0?'+':'')+(a>=.1?v.toFixed(2):a>=.01?v.toFixed(3):v.toFixed(4))+'B';
+      ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='500 '+fs+'px \'IBM Plex Mono\',monospace';
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,x+CELL/2,y+CELL/2);
+    }
+  }
+  // Strike labels
+  const fmtS=s=>s>=1000?s.toFixed(0):s.toFixed(1);
+  ctx.font='400 '+fs+'px \'IBM Plex Mono\',monospace';ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let ri=0;ri<nR;ri++){ctx.fillStyle='rgba(255,255,255,0.55)';ctx.fillText(fmtS(strikes[ri]),LABEL_W-6,LABEL_H+ri*CELL+CELL/2);}
+  // Expiry labels rotated
+  const todayMs=new Date().setHours(0,0,0,0);
+  for(let ci=0;ci<nC;ci++){
+    const x=LABEL_W+ci*CELL+CELL/2,dte=Math.round((new Date(exps[ci]+'T00:00:00Z')-todayMs)/86400000),lbl=exps[ci].slice(5)+' ('+dte+'d)';
+    ctx.save();ctx.translate(x,LABEL_H-4);ctx.rotate(-Math.PI/2);
+    ctx.font='400 '+(Math.max(7,fs-1))+'px \'IBM Plex Mono\',monospace';ctx.fillStyle='rgba(255,255,255,0.5)';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(lbl,0,0);ctx.restore();
+  }
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;ctx.setLineDash([]);
+  for(let ci=0;ci<=nC;ci++){const x=LABEL_W+ci*CELL;ctx.beginPath();ctx.moveTo(x,LABEL_H);ctx.lineTo(x,H);ctx.stroke();}
+  for(let ri=0;ri<=nR;ri++){const y=LABEL_H+ri*CELL;ctx.beginPath();ctx.moveTo(LABEL_W,y);ctx.lineTo(W,y);ctx.stroke();}
+  // Level lines
+  const sLo=strikes[strikes.length-1],sHi=strikes[0],cl=v=>Math.max(sLo,Math.min(sHi,v));
+  function drawLine(price,color,dash){const idx=strikes.reduce((bi,s,i)=>Math.abs(s-price)<Math.abs(strikes[bi]-price)?i:bi,0);const y=LABEL_H+idx*CELL+CELL/2;ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.5;if(dash)ctx.setLineDash([4,3]);else ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(LABEL_W,y);ctx.lineTo(W,y);ctx.stroke();ctx.restore();}
+  drawLine(cl(spot),'rgba(255,255,255,0.7)',false);drawLine(cl(kl.gflip),'rgba(255,255,255,0.35)',true);drawLine(cl(kl.callWall),'rgba(60,200,100,0.7)',true);drawLine(cl(kl.putWall),'rgba(200,70,70,0.7)',true);
+  // Level labels
+  scroll.querySelectorAll('.heat-lbl').forEach(e=>e.remove());
+  scroll.style.position='relative';
+  const levels=[[cl(spot),'Spot','rgba(255,255,255,0.85)'],[cl(kl.gflip),'Gamma Flip','rgba(255,255,255,0.5)'],[cl(kl.callWall),'Call Wall','rgba(60,200,100,0.9)'],[cl(kl.putWall),'Put Wall','rgba(200,70,70,0.9)']];
+  for(const[price,label,color]of levels){const idx=strikes.reduce((bi,s,i)=>Math.abs(s-price)<Math.abs(strikes[bi]-price)?i:bi,0);const top=LABEL_H+idx*CELL+CELL/2;const d=document.createElement('div');d.className='heat-lbl';d.style.cssText='position:absolute;left:'+(LABEL_W+nC*CELL+6)+'px;top:'+(LABEL_H+idx*CELL+CELL/2-7)+'px;font:600 8px \'IBM Plex Mono\',monospace;color:'+color+';white-space:nowrap;pointer-events:none';d.textContent=label;scroll.appendChild(d);}
+  // Tooltip
+  canvas.onmousemove=evt=>{const rect=canvas.getBoundingClientRect(),mx=evt.clientX-rect.left,my=evt.clientY-rect.top,ci=Math.floor((mx-LABEL_W)/CELL),ri=Math.floor((my-LABEL_H)/CELL);if(ci<0||ci>=nC||ri<0||ri>=nR){canvas.title='';return;}const v=M[strikes[ri]+'|'+exps[ci]]||0;canvas.title='Strike '+fmtS(strikes[ri])+'  Exp '+exps[ci]+'  GEX '+(v>=0?'+':'')+v.toFixed(4)+'B';};
+}
+
+// ── RENDER TABLE ───────────────────────────────────────────────
+function renderTable(){
+  if(!DATA)return;
+  const{agg,spot,equivRatio}=DATA,cfg=ASSETS[SYM],sort=document.getElementById('sort-sel').value;
+  let rows=[...agg];
+  if(sort==='abs')rows.sort((a,b)=>b.absGex-a.absGex);
+  else if(sort==='call')rows=rows.filter(r=>r.gexNet>0).sort((a,b)=>b.gexNet-a.gexNet);
+  else if(sort==='put')rows=rows.filter(r=>r.gexNet<0).sort((a,b)=>a.gexNet-b.gexNet);
+  else rows.sort((a,b)=>Math.abs(a.strike-spot)-Math.abs(b.strike-spot));
+  rows=rows.slice(0,10);
+  document.getElementById('table-head').innerHTML=['Strike',cfg.equivLabel+' Equiv','Call GEX','Put GEX','Net GEX','Vol GEX','Dist%','OI','IV'].map(h=>'<th>'+h+'</th>').join('');
+  document.getElementById('table-body').innerHTML=rows.map(r=>{const nc=r.gexNet>=0?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)';return'<tr><td>'+r.strike.toFixed(1)+'</td><td>'+(r.strike*equivRatio).toFixed(2)+'</td><td style="color:rgba(120,200,140,0.9)">'+r.callGex.toFixed(4)+'B</td><td style="color:rgba(200,100,100,0.9)">'+r.putGex.toFixed(4)+'B</td><td style="color:'+nc+';font-weight:600">'+(r.gexNet>=0?'+':'')+r.gexNet.toFixed(4)+'B</td><td style="color:'+(r.vgexNet>=0?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)')+'">'+(r.vgexNet>=0?'+':'')+r.vgexNet.toFixed(4)+'B</td><td style="color:#7FA8C4">'+(r.distPct>=0?'+':'')+r.distPct.toFixed(2)+'%</td><td>'+r.oi.toLocaleString()+'</td><td>'+(r.iv*100).toFixed(1)+'%</td></tr>';}).join('');
+}
+
+// ── RENDER STRIP ───────────────────────────────────────────────
+function renderStrip(){
+  if(!DATA)return;
+  const{agg,raw,spot,kl,flow}=DATA;
+  const totalDex=agg.reduce((a,b)=>a+b.dex,0),totalVex=agg.reduce((a,b)=>a+b.vex,0),totalCex=agg.reduce((a,b)=>a+b.cex,0);
+  const atmIV=computeATMiv(raw,spot)*100;
+  const reg=computeRegime(agg,kl,spot,flow,atmIV);
+  document.getElementById('regime-label').textContent=reg.regime;
+  document.getElementById('regime-label').style.color=reg.color;
+  document.getElementById('regime-sub').textContent=reg.sub;
+  document.getElementById('regime-pip').style.background=reg.color;
+  document.getElementById('regime-pip').style.boxShadow='0 0 8px '+reg.color;
+  function fmtExp(v,unit='M'){if(Math.abs(v)>=1000)return(v/1000>=0?'+':'')+(v/1000).toFixed(2)+'B';return(v>=0?'+':'')+v.toFixed(2)+unit;}
+  document.getElementById('et-iv').textContent=atmIV.toFixed(1)+'%';
+  document.getElementById('et-dex').textContent=fmtExp(totalDex/1e6);document.getElementById('et-dex').style.color=totalDex>=0?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)';
+  // VEX bias — direction + interpretation
+  const vexBiasColor=totalVex>0?'rgba(100,200,255,0.95)':totalVex<0?'rgba(255,100,160,0.95)':'rgba(180,180,180,0.6)';
+  const vexBiasLabel=totalVex>0?'BULLISH · dealers buy vol dips':totalVex<0?'BEARISH · dealers sell vol rips':'NEUTRAL';
+  document.getElementById('et-vex').textContent=fmtExp(totalVex);
+  document.getElementById('et-vex').style.color=vexBiasColor;
+  document.getElementById('et-vex-sub').textContent=vexBiasLabel;
+  document.getElementById('et-vex-sub').style.color=vexBiasColor;
+  document.getElementById('vex-bias-tile').style.borderBottom='2px solid '+vexBiasColor;
+  document.getElementById('et-cex').textContent=fmtExp(totalCex);document.getElementById('et-cex').style.color=totalCex>=0?'rgba(120,180,220,0.9)':'rgba(180,120,200,0.9)';
+  const posG=agg.filter(r=>r.gexNet>0).reduce((a,b)=>a+b.gexNet,0),negG=Math.abs(agg.filter(r=>r.gexNet<0).reduce((a,b)=>a+b.gexNet,0)),gr=negG>0?posG/negG:2;
+  document.getElementById('et-gexr').textContent=gr.toFixed(2)+'x';document.getElementById('et-gexr').style.color=gr>=1?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)';
+  document.getElementById('et-flow').textContent=(flow.ratio*100).toFixed(1)+'%';document.getElementById('et-flow').style.color=flow.ratio>=.5?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)';
+  const totalTex=agg.reduce((a,b)=>a+(b.tex||0),0),totalVmx=agg.reduce((a,b)=>a+(b.vmx||0),0),totalZmx=agg.reduce((a,b)=>a+(b.zmx||0),0);
+  function fmtG(v){if(Math.abs(v)>=1e6)return(v/1e6).toFixed(2)+'M';if(Math.abs(v)>=1e3)return(v/1e3).toFixed(1)+'K';return v.toFixed(1);}
+  document.getElementById('et-tex').textContent=(totalTex>=0?'+':'')+fmtG(totalTex);document.getElementById('et-tex').style.color=totalTex>=0?'rgba(255,200,80,0.9)':'rgba(200,100,100,0.9)';
+  document.getElementById('et-vmx').textContent=(totalVmx>=0?'+':'')+totalVmx.toFixed(2);document.getElementById('et-vmx').style.color=totalVmx>=0?'rgba(100,180,255,0.9)':'rgba(255,100,160,0.9)';
+  document.getElementById('et-zmx').textContent=(totalZmx>=0?'+':'')+totalZmx.toFixed(4);document.getElementById('et-zmx').style.color=totalZmx>=0?'rgba(160,120,255,0.9)':'rgba(255,160,80,0.9)';
+  const totalGex=agg.reduce((a,b)=>a+b.gexNet,0),totalVgex=agg.reduce((a,b)=>a+b.vgexNet,0);
+  const posGex2=agg.filter(r=>r.callGex>0).reduce((a,b)=>a+b.callGex,0),negGex2=Math.abs(agg.filter(r=>r.putGex<0).reduce((a,b)=>a+b.putGex,0)),ratio=negGex2>0?posGex2/negGex2:2;
+  const sgex=document.getElementById('sb-gex');sgex.textContent=(totalGex>=0?'+':'')+totalGex.toFixed(3)+'B';sgex.style.color=totalGex>=0?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)';
+  const svgex=document.getElementById('sb-vgex');svgex.textContent=(totalVgex>=0?'+':'')+totalVgex.toFixed(3)+'B';svgex.style.color=totalVgex>=0?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)';
+  document.getElementById('sb-ratio').textContent=ratio.toFixed(3);
+  document.getElementById('sb-flow').textContent=flow.ratio.toFixed(3);document.getElementById('sb-flow').style.color=flow.ratio>=.5?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)';
+  const nfStr=Math.abs(flow.net)>=1e6?((flow.net/1e6).toFixed(1)+'M'):((flow.net/1e3).toFixed(0)+'K');
+  document.getElementById('sb-nflow').textContent=(flow.net>=0?'+':'')+nfStr;document.getElementById('sb-nflow').style.color=flow.net>=0?'rgba(120,200,140,0.9)':'rgba(200,100,100,0.9)';
+}
+
+// ── MAIN RENDER ────────────────────────────────────────────────
+function render(){
+  if(!DATA)return;
+  renderStrip();renderKL();renderActiveTile();
+  if(MODE==='GEX'){renderGEX();renderTopo();}
+  else if(MODE==='HEAT')renderHeat();
+  else if(MODE==='TABLE')renderTable();
+}
+
+// ── PROCESS + RENDER ───────────────────────────────────────────
+async function processAndRender(rawCboe){
+  showLoad('PROCESSING '+SYM,'Running Black-Scholes…');
+  try{
+    const{raw:rows,spot}=processChain(rawCboe,SYM,NEXP);
+    if(!rows.length)throw new Error('No valid options rows');
+    const agg=aggregate(rows,spot),kl=computeKeyLevels(agg,spot),flow=computeFlow(rows),equivRatio=await getEquivRatio(SYM,spot);
+    DATA={agg,raw:rows,spot,kl,flow,equivRatio};
+    hideLoad();render();
+  }catch(e){document.getElementById('ov-txt').textContent='ERROR';document.getElementById('ov-sub').textContent=e.message;}
+}
+
+async function loadAndRender(){
+  showLoad('LOADING '+SYM,'Fetching from proxy…');
+  try{
+    let rawCboe=await getChain(SYM);
+    if(!rawCboe.data)rawCboe={data:rawCboe};
+    if(!rawCboe.data.options&&rawCboe.options)rawCboe.data.options=rawCboe.options;
+    if(!rawCboe.data.current_price&&rawCboe.current_price)rawCboe.data.current_price=rawCboe.current_price;
+    RAW_CACHE[SYM]={raw:rawCboe,ts:Date.now()};
+    await processAndRender(rawCboe);
+  }catch(e){document.getElementById('ov-txt').textContent='ERROR';document.getElementById('ov-sub').textContent=e.message+'\n\nProxy: https://gex-terminal-uv9n.onrender.com';}
+}
+
+window.addEventListener('resize',()=>{
+  if(!DATA)return;
+  if(MODE==='GEX'){renderGEX();Plotly.Plots.resize('topo-chart');}
+  else if(MODE==='HEAT')renderHeat();
+});
+
+loadAndRender();
+startCD();
+</script>
+</body>
+</html>
