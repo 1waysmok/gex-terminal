@@ -328,7 +328,7 @@ const ASSETS={
   SPY:{equiv:'ES Equiv',equivLabel:'ES',cboe:'SPY', q:0.013},
   QQQ:{equiv:'NQ Equiv',equivLabel:'NQ',cboe:'QQQ', q:0.006},
 };
-const PROXY_URL='https://gex-terminal-uv9n.onrender.com';
+const PROXY_URL=window.location.origin; // served from same host
 
 // ── STATE ──────────────────────────────────────────────────────
 let SYM='SPX', NEXP=1, MODE='GEX', GEXMODE='NET', ZOOM=0.20;
@@ -373,7 +373,7 @@ function setMode(m){
     const mb=document.getElementById('mb-'+v);if(mb)mb.classList.toggle('on',v===m);
     const vw=document.getElementById('view-'+v);if(vw)vw.style.display='none';
   });
-  if(m==='GEX'){ document.getElementById('view-GEX').style.display='flex'; if(DATA){renderGEX();renderTopo();} }
+  if(m==='GEX'){ document.getElementById('view-GEX').style.display='flex'; if(DATA){renderGEX();setTimeout(renderTopo,50);} }
   if(m==='HEAT'){ document.getElementById('view-HEAT').style.display='flex'; if(DATA)renderHeat(); }
   if(m==='TABLE'){ document.getElementById('view-TABLE').style.display='block'; if(DATA)renderTable(); }
 }
@@ -674,7 +674,7 @@ function renderTopo(){
   if(!DATA)return;
   const{agg,spot}=DATA;
   const wrap=document.getElementById('topo-wrap');
-  const tip=document.getElementById('topo-tip');
+  const tip=null; // topo-tip removed
 
   // ── Strike range: ±5% (matches Python's 0.95–1.05) ──────────────────
   const topo=agg.filter(r=>Math.abs(r.strike-spot)/spot<=0.05);
@@ -823,7 +823,6 @@ function checkWallAlert(agg, spot, ml){
   const pct=(spot-nearest.price)/nearest.price*100;
   const side=pct>0?'above':'below';
   const interp=dex>0?'Dealers long Δ — buying support':'Dealers short Δ — selling pressure';
-  el.style.display='block';
   document.getElementById('wa-price').textContent='$'+nearest.price.toFixed(2);
   document.getElementById('wa-dist').textContent=Math.abs(pct).toFixed(2)+'% '+side;
   document.getElementById('wa-label').textContent=nearest.label;
@@ -1088,7 +1087,7 @@ function renderStrip(){
 function render(){
   if(!DATA)return;
   renderStrip();renderKL();renderActiveTile();
-  if(MODE==='GEX'){renderGEX();renderTopo();}
+  if(MODE==='GEX'){renderGEX();setTimeout(renderTopo,50);}
   else if(MODE==='HEAT')renderHeat();
   else if(MODE==='TABLE')renderTable();
 }
